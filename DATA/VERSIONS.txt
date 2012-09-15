@@ -1,0 +1,127 @@
+14-09-2012 -- version 1.4 beta
+==============================
+Bugfixes:
+- textures with a hash code starting with 0 will now be correctly named when dumped
+  and loaded when overriden (with prefix 0s)
+- (hopefully) fixed another alt-tab crash cause
+- fixed modified HUD performance, particularly in conjunction with SMAA and VSSAO
+- fixed modified HUD not showing effects like poison or bleeding correctly
+- various code cleanups
+
+
+13-09-2012 -- version 1.3 beta
+==============================
+Bugfixes:
+- fixed dynamic shadows being cut off in some areas
+- fixed some icons still not correctly handled by Hud toggle
+New features:
+- Hud scaling, opacity manipulation and minimalistic Hud
+- .ini options and toggle action for the above
+
+
+11-09-2012 -- version 1.2 beta
+==============================
+Bugfixes:
+- fixed some symbols still appearing with HUD toggled off
+- fixed cut-off messages at some specific resolutions
+- improved SSAO quality and speed, reduced distant artifacts
+New features:
+- texture override functionality
+- texture dumping can now be enabled in the .ini
+- screenshot folder can be specified in the .ini
+
+
+09-09-2012 -- version 1.1 beta
+==============================
+Bugfixes:
+- SSAO depth buffer inaccuracy fixed. Removes line artifacts from SSAO
+- further renderpipeline state restoration after SMAA and checks whether we are at the correct stage
+- fixed windows scaling issue when toggling between borderless windowed fullscreen and windowed mode
+New features:
+- SSAO now configurable in .ini
+- Optional high-quality DoF blur
+- HUD on/off toggle as bindable key action
+
+
+07-09-2012 -- version 1.0 beta
+==============================
+Bugfixes:
+- fixed crashing bug when alt-tabbing from/to fullscreen mode
+- fixed some unrestored renderpipeline state after SMAA
+New features:
+- configurable keybindings (see DSfixKeys.ini)
+- SSAO integration
+
+
+04-09-2012 -- version 0.9 alpha
+===============================
+Bugfixes:
+- Save backups should now be correctly limited to the amount specified
+- Language override is more resilient in case of crashes and cleans up the registry
+New features:
+- SMAA1x integration
+- Hudless screenshots can be taken with F5
+
+
+01-09-2012 -- version 0.8 alpha
+===============================
+- DSfix is now a Direct Input wrapper instead of a d3d9.dll wrapper
+  this was done to fix the optimus issue, and it should also allow people to use 
+  other wrappers for postprocessing effects
+- there is a new setting "dinput8dllWrapper" which allows you to use additional
+  DirectInput wrappers on top of DSfix should you so desire
+- the way logging was handled when disabled has been improved, so you could see
+  slightly improved performance in CPU limited situations with "logLevel 0" (the default) 
+
+
+01-09-2012 -- version 0.7.5 alpha
+=================================
+- made intro detection much more robust
+
+
+31-08-2012 -- version 0.7 alpha
+===============================
+- added save game backup option
+- added intro skipping option
+
+
+28-08-2012 -- version 0.6 alpha
+===============================
+- added borderless windowed fullscreen mode
+  (F8 and ini setting)
+- added .ini language override
+- refactored code base
+
+
+26-08-2012 -- version 0.5 alpha
+===============================
+- fixed cursor toggling (F9), added cursor capturing (F10)
+- also added .ini settings for both of those
+- improved the fix introduced in 0.2 for cut-off text/buttons
+  no longer nearly as invasive
+
+
+25-08-2012 -- version 0.4 alpha
+===============================
+- .ini setting for overriding DoF rendering resolution
+- also added an option to disable DoF scaling
+- better documentation of the options in the .ini
+
+
+24-08-2012 -- version 0.3 alpha
+===============================
+- .ini setting for texture filtering override level (from 0 to 2)
+- press F9 to toggle mouse cursor on/off
+
+
+24-08-2012 -- version 0.2 alpha
+===============================
+- Fixed text/button prompt cutoff
+- Force all sampler to 16x anisotropic. This should fix downsampling for everyone
+  (If it causes any problems I'll make it optional, but I didn't see any so far)
+
+
+23-08-2012 -- version 0.1 alpha
+===============================
+- Initial release
+- This will probably break everything horribly

@@ -1,0 +1,61 @@
+// xmacro file for .ini setting definition
+// format: (type, cname, ininame, default value) 
+	
+// Graphics Options
+SETTING(unsigned, RenderWidth, "renderWidth", 1024);
+SETTING(unsigned, RenderHeight, "renderHeight", 720);
+SETTING(unsigned, FilteringOverride, "filteringOverride", 0);
+
+SETTING(unsigned, DOFOverrideResolution, "dofOverrideResolution", 0);
+SETTING(bool, DisableDofScaling, "disableDofScaling", false);
+SETTING(unsigned, DOFBlurAmount, "dofBlurAmount", 0);
+
+SETTING(unsigned, SmaaQuality, "smaaQuality", 0);
+
+SETTING(unsigned, SsaoStrength, "ssaoStrength", 0);
+
+// Logging Options
+SETTING(unsigned, LogLevel, "logLevel", 10);
+	
+// Cursor Options
+SETTING(bool, DisableCursor, "disableCursor", false);
+SETTING(bool, CaptureCursor, "captureCursor", false);
+	
+// Language Options
+SETTING(std::string, OverrideLanguage, "overrideLanguage", "");
+
+// Skipping Options
+SETTING(bool, SkipIntro, "skipIntro", false);
+
+// Backup Options
+SETTING(bool, EnableBackups, "enableBackups", false);
+SETTING(unsigned, BackupInterval, "backupInterval", 1500);
+SETTING(unsigned, MaxBackups, "maxBackups", 20);
+
+// Wrapper chaining options
+SETTING(std::string, Dinput8dllWrapper, "dinput8dllWrapper", "");
+
+// Folder options
+SETTING(std::string, ScreenshotDir, "screenshotDir", ".");
+
+// Texture Override Options
+SETTING(bool, EnableTextureDumping, "enableTextureDumping", false);
+SETTING(bool, EnableTextureOverride, "enableTextureOverride", false);
+
+// HUD options
+SETTING(bool, EnableHudMod, "enableHudMod", false)
+SETTING(bool, EnableMinimalHud, "enableMinimalHud", false)
+SETTING(float, HudScaleFactor, "hudScaleFactor", 1.0f)
+SETTING(float, HudTopLeftOpacity, "hudTopLeftOpacity", 1.0f)
+SETTING(float, HudBottomLeftOpacity, "hudBottomLeftOpacity", 1.0f)
+SETTING(float, HudBottomRightOpacity, "hudBottomRightOpacity", 1.0f)
+
+// Screen Options
+SETTING(bool, BorderlessFullscreen, "borderlessFullscreen", false);
+SETTING(bool, ForceFullscreen, "forceFullscreen", false);
+SETTING(bool, ForceWindowed, "forceWindowed", false);
+SETTING(unsigned, PresentWidth, "presentWidth", 1280);
+SETTING(unsigned, PresentHeight, "presentHeight", 720);
+SETTING(bool, EnableVsync, "enableVsync", true);
+SETTING(unsigned, FullscreenHz, "fullscreenHz", 60);
+SETTING(int, D3DAdapterOverride, "d3dAdapterOverride", -1);

@@ -1,0 +1,30 @@
+
+// Cursor Actions
+
+ACTION(toggleCursorVisibility, WindowManager::get().toggleCursorVisibility())
+ACTION(toggleCursorCapture, WindowManager::get().toggleCursorCapture())
+
+// Window Actions
+
+ACTION(toggleBorderlessFullscreen, WindowManager::get().toggleBorderlessFullscreen())
+
+// Screenshot Actions
+
+ACTION(takeHudlessScreenshot, RSManager::get().enableTakeScreenshot())
+
+// Graphics Actions
+
+ACTION(toggleSMAA, RSManager::get().toggleSmaa())
+ACTION(toggleVSSAO, RSManager::get().toggleVssao())
+ACTION(toggleDofGauss, RSManager::get().toggleDofGauss())
+
+ACTION(toggleHUD, RSManager::get().toggleHideHud())
+ACTION(toggleHUDChanges, RSManager::get().toggleChangeHud())
+
+// Development Actions
+
+ACTION(reloadSSAOEffect, RSManager::get().reloadVssao())
+ACTION(reloadGAUSSEffect, RSManager::get().reloadGauss())
+ACTION(singleFrameFullCapture, RSManager::get().enableSingleFrameCapture())
+ACTION(userTrigger, SDLOG(0, "================================================================= USER TRIGGER ===\n"))
+ACTION(reloadHUDVertices, RSManager::get().reloadHudVertices());

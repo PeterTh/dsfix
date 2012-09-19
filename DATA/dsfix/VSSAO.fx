@@ -257,9 +257,6 @@ float4 VBlur( VSOUT IN ) : COLOR0 {
 	//return lerp(blurred, color, factor);
 }
 
-static const float sampleWeights[3] = { 0.2270270270, 0.3162162162, 0.0702702703 };
-static const float sampleOffsets[3] = { 0.0, 1.3846153846, 3.2307692308 };
-
 float4 Combine( VSOUT IN ) : COLOR0 {
 	float3 color = tex2D(frameSampler, IN.UVCoord).rgb;
 	float ao = tex2D(passSampler, IN.UVCoord/scale).r;
@@ -286,20 +283,48 @@ technique t0
 	{
 		VertexShader = compile vs_3_0 FrameVS();
 		PixelShader = compile ps_3_0 ssao_Main();
+		ZEnable = false;
+		ZWriteEnable = false;
+		AlphaBlendEnable = false;
+		AlphaTestEnable = false;
+		StencilEnable = false;
+		Clipping = false;
+		CullMode = NONE;
 	}
 	pass p1
 	{
 		VertexShader = compile vs_3_0 FrameVS();
 		PixelShader = compile ps_3_0 HBlur();
+		ZEnable = false;
+		ZWriteEnable = false;
+        AlphaBlendEnable = false;
+		AlphaTestEnable = false;
+		StencilEnable = false;
+		Clipping = false;
+		CullMode = NONE;
 	}
 	pass p2
 	{
 		VertexShader = compile vs_3_0 FrameVS();
 		PixelShader = compile ps_3_0 VBlur();
+		ZEnable = false;
+		ZWriteEnable = false;
+        AlphaBlendEnable = false;
+		AlphaTestEnable = false;
+		StencilEnable = false;
+		Clipping = false;
+		CullMode = NONE;
 	}
 	pass p3
 	{
 		VertexShader = compile vs_1_1 FrameVS();
 		PixelShader = compile ps_2_0 Combine();
+		ZEnable = false;
+		ZWriteEnable = false;
+        AlphaBlendEnable = false;
+		AlphaTestEnable = false;
+		StencilEnable = false;
+		Clipping = false;
+		CullMode = NONE;
 	}
 }

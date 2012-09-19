@@ -6,6 +6,7 @@
 using namespace std;
 
 #include "Settings.h"
+#include "RenderstateManager.h"
 
 VSSAO::VSSAO(IDirect3DDevice9 *device, int width, int height, unsigned strength) 
 	: Effect(device), width(width), height(height) {
@@ -79,7 +80,7 @@ void VSSAO::go(IDirect3DTexture9 *frame, IDirect3DTexture9 *depth, IDirect3DSurf
 
 void VSSAO::mainSsaoPass(IDirect3DTexture9* depth, IDirect3DSurface9* dst) {
 	device->SetRenderTarget(0, dst);
-    device->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(0, 0, 0, 0), 1.0f, 0);
+    device->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(255, 0, 0, 0), 1.0f, 0);
 
     // Setup variables.
     effect->SetTexture(depthTexHandle, depth);
@@ -128,6 +129,7 @@ void VSSAO::vBlurPass(IDirect3DTexture9 *depth, IDirect3DTexture9* src, IDirect3
 
 void VSSAO::combinePass(IDirect3DTexture9* frame, IDirect3DTexture9* ao, IDirect3DSurface9* dst) {
 	device->SetRenderTarget(0, dst);
+    //device->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(255, 255, 0, 255), 1.0f, 0);
 
     // Setup variables.
     effect->SetTexture(prevPassTexHandle, ao);

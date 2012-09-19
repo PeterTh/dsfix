@@ -23,6 +23,7 @@ void RSManager::initResources() {
 	d3ddev->CreateTexture(Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rgbaBuffer1Tex, NULL);
 	rgbaBuffer1Tex->GetSurfaceLevel(0, &rgbaBuffer1Surf);
 	d3ddev->CreateDepthStencilSurface(Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, false, &depthStencilSurf, NULL);
+	d3ddev->CreateStateBlock(D3DSBT_ALL, &prevStateBlock);
 	SDLOG(0, "RenderstateManager resource initialization completed\n");
 	if(!inited) startDetour(); // on first init only
 	inited = true;
@@ -33,6 +34,7 @@ void RSManager::releaseResources() {
 	SAFERELEASE(rgbaBuffer1Surf);
 	SAFERELEASE(rgbaBuffer1Tex);
 	SAFERELEASE(depthStencilSurf);
+	SAFERELEASE(prevStateBlock);
 	SAFEDELETE(smaa);
 	SAFEDELETE(vssao);
 	SAFEDELETE(gauss);
@@ -129,27 +131,72 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 	//		}
 	//	}
 	//}
-	//if(capturing) {
-	//	IDirect3DSurface9 *oldRenderTarget, *depthStencilSurface;
-	//	d3ddev->GetRenderTarget(0, &oldRenderTarget);
-	//	d3ddev->GetDepthStencilSurface(&depthStencilSurface);
-	//	char buffer[64];
-	//	sprintf(buffer, "_oldRenderTarget_%p_", oldRenderTarget);
-	//	SDLOG(0, "Capturing surface %p as %s\n", oldRenderTarget, buffer);
-	//	dumpSurface(buffer, oldRenderTarget);
-	//	if(depthStencilSurface) {
-	//		dumpCaptureIndex--;
-	//		sprintf(buffer, "_oldRenderTargetDepth_%p_", depthStencilSurface);
-	//		SDLOG(0, "Capturing depth surface %p as %s\n", depthStencilSurface, buffer);
-	//		dumpSurface(buffer, depthStencilSurface);
-	//	}
-	//	if(oldRenderTarget) oldRenderTarget->Release();
-	//	if(depthStencilSurface) depthStencilSurface->Release();
-	//}
+	if(capturing) {
+		IDirect3DSurface9 *oldRenderTarget, *depthStencilSurface;
+		d3ddev->GetRenderTarget(0, &oldRenderTarget);
+		d3ddev->GetDepthStencilSurface(&depthStencilSurface);
+		char buffer[64];
+		sprintf(buffer, "%03d_oldRenderTarget_%p_.tga", nrts, oldRenderTarget);
+		SDLOG(0, "Capturing surface %p as %s\n", oldRenderTarget, buffer);
+		D3DXSaveSurfaceToFile(buffer, D3DXIFF_TGA, oldRenderTarget, NULL, NULL);
+		if(depthStencilSurface) {
+			sprintf(buffer, "%03d_oldRenderTargetDepth_%p_.tga", nrts, oldRenderTarget);
+			SDLOG(0, "Capturing depth surface %p as %s\n", depthStencilSurface, buffer);
+			D3DXSaveSurfaceToFile(buffer, D3DXIFF_TGA, depthStencilSurface, NULL, NULL);
+		}
+		SAFERELEASE(oldRenderTarget);
+		SAFERELEASE(depthStencilSurface);
+	}
+	
+	if(nrts == 1) { // we are switching to the RT that will be the main rendering target for this frame
+		// store it for later use
+		mainRT = pRenderTarget;
+	}
 
 	if(nrts == 11) { // we are switching to the RT used to store the Z value in R (among other things)
 		// lets store it for later use
 		zSurf = pRenderTarget;
+	}
+
+	if(mainRT && pRenderTarget == mainRT) {
+		++mainRTuses;
+	}
+
+	// effects
+	if(mainRTuses == 2 && mainRT && zSurf && ((smaa && doSmaa) || (vssao && doVssao))) { // we are switching away from the initial 3D-rendered image, do effects
+		IDirect3DSurface9 *oldRenderTarget;
+		d3ddev->GetRenderTarget(0, &oldRenderTarget);
+		if(oldRenderTarget == mainRT) {
+			// final renderbuffer has to be from texture, just making sure here
+			if(IDirect3DTexture9* tex = getSurfTexture(oldRenderTarget)) {
+				// check size just to make even more sure
+				D3DSURFACE_DESC desc;
+				oldRenderTarget->GetDesc(&desc);
+				if(desc.Width == Settings::get().getRenderWidth() && desc.Height == Settings::get().getRenderHeight()) {
+					IDirect3DTexture9 *zTex = getSurfTexture(zSurf);
+					//if(takeScreenshot) D3DXSaveTextureToFile("0effect_pre.bmp", D3DXIFF_BMP, tex, NULL);
+					//if(takeScreenshot) D3DXSaveTextureToFile("0effect_z.bmp", D3DXIFF_BMP, zTex, NULL);
+					storeRenderState();
+					d3ddev->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
+					// perform SSAO
+					if(vssao && doVssao) {
+						vssao->go(tex, zTex, rgbaBuffer1Surf);
+						d3ddev->StretchRect(rgbaBuffer1Surf, NULL, oldRenderTarget, NULL, D3DTEXF_NONE);
+					}
+					// perform SMAA processing
+					if(smaa && doSmaa) {
+						smaa->go(tex, tex, rgbaBuffer1Surf, SMAA::INPUT_LUMA);
+						d3ddev->StretchRect(rgbaBuffer1Surf, NULL, oldRenderTarget, NULL, D3DTEXF_NONE);
+					}
+					restoreRenderState();
+					zTex->Release();
+					//if(takeScreenshot) D3DXSaveSurfaceToFile("1effect_buff.bmp", D3DXIFF_BMP, rgbaBuffer1Surf, NULL, NULL);
+					//if(takeScreenshot) D3DXSaveSurfaceToFile("1effect_post.bmp", D3DXIFF_BMP, oldRenderTarget, NULL, NULL);
+				}
+				tex->Release();				
+			}
+		}
+		oldRenderTarget->Release();
 	}
 
 	// DoF blur stuff
@@ -189,22 +236,6 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 			D3DSURFACE_DESC desc;
 			oldRenderTarget->GetDesc(&desc);
 			if(desc.Width == Settings::get().getRenderWidth() && desc.Height == Settings::get().getRenderHeight()) {
-				if(!effectsDone && ((smaa && doSmaa) || (vssao && doVssao))) {
-					storeRenderState();
-					// perform processing
-					if(smaa && doSmaa) {
-						smaa->go(tex, tex, rgbaBuffer1Surf, SMAA::INPUT_LUMA);
-						d3ddev->StretchRect(rgbaBuffer1Surf, NULL, oldRenderTarget, NULL, D3DTEXF_NONE);
-					}
-					if(vssao && doVssao) {
-						IDirect3DTexture9 *zTex = getSurfTexture(zSurf);
-						vssao->go(tex, zTex, rgbaBuffer1Surf);
-						zTex->Release();
-						d3ddev->StretchRect(rgbaBuffer1Surf, NULL, oldRenderTarget, NULL, D3DTEXF_NONE);
-					}
-					restoreRenderState();
-					effectsDone = true;
-				}
 				if(takeScreenshot) {
 					takeScreenshot = false;
 					SDLOG(0, "Capturing screenshot\n");
@@ -363,9 +394,11 @@ HRESULT RSManager::redirectPresent(CONST RECT *pSourceRect, CONST RECT *pDestRec
 	}
 	skippedPresents = 0;
 	hudStarted = false;
-	effectsDone = false;
 	nrts = 0;
 	doft[0] = 0; doft[1] = 0; doft[2] = 0;
+	mainRT = NULL;
+	mainRTuses = 0;
+	zSurf = NULL;
 	return d3ddev->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
 }
 
@@ -423,13 +456,11 @@ void RSManager::registerD3DXCompileShader(LPCSTR pSrcData, UINT srcDataLen, cons
 }
 
 IDirect3DTexture9* RSManager::getSurfTexture(IDirect3DSurface9* pSurface) {
-	void *pContainer = NULL;
-	IDirect3DTexture9 *pTexture = NULL;
-	HRESULT hr = pSurface->GetContainer(IID_IDirect3DTexture9, &pContainer);
-	if(SUCCEEDED(hr) && pContainer) {
-		pTexture = (IDirect3DTexture9*)pContainer;
-	}
-	return pTexture;
+	IUnknown *pContainer = NULL;
+	HRESULT hr = pSurface->GetContainer(IID_IDirect3DTexture9, (void**)&pContainer);
+	if(D3D_OK == hr) return (IDirect3DTexture9*)pContainer;
+	SAFERELEASE(pContainer);
+	return NULL;
 }
 
 void RSManager::enableSingleFrameCapture() {
@@ -608,6 +639,7 @@ void RSManager::storeRenderState() {
 	d3ddev->GetVertexDeclaration(&prevVDecl);
 	d3ddev->GetDepthStencilSurface(&prevDepthStencilSurf);
 	d3ddev->SetDepthStencilSurface(depthStencilSurf);
+	prevStateBlock->Capture();
 }
 
 void RSManager::restoreRenderState() {
@@ -619,6 +651,7 @@ void RSManager::restoreRenderState() {
 	if(prevDepthStencilSurf) {
 		prevDepthStencilSurf->Release();
 	}
+	prevStateBlock->Apply();
 }
 
 const char* RSManager::getTextureName(IDirect3DBaseTexture9* pTexture) {

@@ -434,7 +434,7 @@ HRESULT APIENTRY hkIDirect3DDevice9::LightEnable(DWORD LightIndex, BOOL bEnable)
 }
 
 HRESULT APIENTRY hkIDirect3DDevice9::MultiplyTransform(D3DTRANSFORMSTATETYPE State, CONST D3DMATRIX *pMatrix) {
-	SDLOG(0, "MultiplyTransform state: %u matrix: \n%s\n", State, D3DMatrixToString(pMatrix));
+	SDLOG(5, "MultiplyTransform state: %u matrix: \n%s\n", State, D3DMatrixToString(pMatrix));
 	return m_pD3Ddev->MultiplyTransform(State, pMatrix);
 }
 
@@ -553,7 +553,7 @@ HRESULT APIENTRY hkIDirect3DDevice9::SetRenderState(D3DRENDERSTATETYPE State, DW
 }
 
 HRESULT APIENTRY hkIDirect3DDevice9::SetSamplerState(DWORD Sampler, D3DSAMPLERSTATETYPE Type, DWORD Value) {
-	SDLOG(10, "SetSamplerState sampler %lu:   state type: %s   value: %lu\n", Sampler, D3DSamplerStateTypeToString(Type), Value);
+	SDLOG(14, "SetSamplerState sampler %lu:   state type: %s   value: %lu\n", Sampler, D3DSamplerStateTypeToString(Type), Value);
 	if(Settings::get().getFilteringOverride() == 2) {
 		m_pD3Ddev->SetSamplerState(Sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
 		m_pD3Ddev->SetSamplerState(Sampler, D3DSAMP_MAGFILTER, D3DTEXF_ANISOTROPIC);

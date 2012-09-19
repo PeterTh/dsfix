@@ -25,9 +25,7 @@ class RSManager {
 
 	bool doDofGauss;
 	GAUSS* gauss;
-
-	bool effectsDone;
-
+	
 	bool doHud;
 	HUD* hud;
 
@@ -84,16 +82,21 @@ class RSManager {
 	// TODO: handle cursed
 	unsigned hddp;
 
+	// main rendertarget for this frame
+	IDirect3DSurface9* mainRT;
+	unsigned mainRTuses;
+
 	void registerKnowTexture(LPCVOID pSrcData, UINT SrcDataSize, LPDIRECT3DTEXTURE9 pTexture);
 	IDirect3DTexture9* getSurfTexture(IDirect3DSurface9* pSurface);
 
 	// Render state store/restore
-	IDirect3DVertexDeclaration9* prevVDecl;
-	IDirect3DSurface9* prevDepthStencilSurf;
 	void storeRenderState();
 	void restoreRenderState();
+	IDirect3DVertexDeclaration9* prevVDecl;
+	IDirect3DSurface9* prevDepthStencilSurf;
 	IDirect3DSurface9* prevRenderTarget;
 	IDirect3DTexture9* prevRenderTex;
+	IDirect3DStateBlock9* prevStateBlock;
 
 public:
 	static RSManager& get() {
@@ -124,6 +127,7 @@ public:
 	D3DPRESENT_PARAMETERS adjustPresentationParameters(const D3DPRESENT_PARAMETERS *pPresentationParameters);
 	void enableSingleFrameCapture();
 	void enableTakeScreenshot();
+	bool takingScreenshot() { return takeScreenshot; }
 	void toggleSmaa() { doSmaa = !doSmaa; }
 	void toggleVssao() { doVssao = !doVssao; }
 	void toggleHideHud() { hideHud = !hideHud; }

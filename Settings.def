@@ -14,6 +14,8 @@ SETTING(unsigned, SmaaQuality, "smaaQuality", 0);
 
 SETTING(unsigned, SsaoStrength, "ssaoStrength", 0);
 
+SETTING(unsigned, MaxFPS, "maxFPS", 30);
+
 // Logging Options
 SETTING(unsigned, LogLevel, "logLevel", 10);
 	

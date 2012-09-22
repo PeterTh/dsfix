@@ -111,7 +111,10 @@
       <TargetMachine>MachineX86</TargetMachine>
       <AdditionalLibraryDirectories>E:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>DINPUT8.def</ModuleDefinitionFile>
-      <AdditionalDependencies>winmm.lib;detours.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>lib\GFWLCompatibility.lib;winmm.lib;detours.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>
+      </IgnoreSpecificDefaultLibraries>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <Midl>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -251,6 +254,7 @@
     <ClCompile Include="Detouring.cpp" />
     <ClCompile Include="dinputWrapper.cpp" />
     <ClCompile Include="Effect.cpp" />
+    <ClCompile Include="FPS.cpp" />
     <ClCompile Include="GAUSS.cpp" />
     <ClCompile Include="Hud.cpp" />
     <ClCompile Include="KeyActions.cpp" />
@@ -313,6 +317,7 @@
     <ClInclude Include="Effect.h" />
     <ClInclude Include="GAUSS.h" />
     <ClInclude Include="Hash.h" />
+    <ClInclude Include="FPS.h" />
     <ClInclude Include="Hud.h" />
     <ClInclude Include="KeyActions.h" />
     <ClInclude Include="SearchTex.h" />

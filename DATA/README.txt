@@ -1,5 +1,5 @@
-DSfix 1.5 by Durante -- README
-==============================
+DSfix by Durante -- README
+==========================
 
 **Please read this whole document before running anything!**
 

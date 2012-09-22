@@ -7,8 +7,8 @@
 
 extern float scale = 1; //downsampling scale, 1 is highest quality but slowest
 extern float aoRadiusMultiplier = 1.0; //Linearly multiplies the radius of the AO Sampling
-extern float ThicknessModel = 80.0; //units in space the AO assumes objects' thicknesses are
-extern float FOV = 90; //Field of View in Degrees
+extern float ThicknessModel = 40.0; //units in space the AO assumes objects' thicknesses are
+extern float FOV = 75; //Field of View in Degrees
 extern float luminosity_threshold = 0.3;
 
 #ifndef SSAO_STRENGTH_LOW
@@ -20,17 +20,17 @@ extern float luminosity_threshold = 0.3;
 #endif
 
 #ifdef SSAO_STRENGTH_LOW
-extern float aoClamp = 0.7;
-extern float aoStrengthMultiplier = 0.7;
+extern float aoClamp = 0.75;
+extern float aoStrengthMultiplier = 0.6;
 #endif
 
 #ifdef SSAO_STRENGTH_MEDIUM
-extern float aoClamp = 0.45;
+extern float aoClamp = 0.5;
 extern float aoStrengthMultiplier = 0.8;
 #endif
 
 #ifdef SSAO_STRENGTH_HIGH
-extern float aoClamp = 0.1;
+extern float aoClamp = 0.2;
 extern float aoStrengthMultiplier = 1.2;
 #endif
 
@@ -283,48 +283,20 @@ technique t0
 	{
 		VertexShader = compile vs_3_0 FrameVS();
 		PixelShader = compile ps_3_0 ssao_Main();
-		ZEnable = false;
-		ZWriteEnable = false;
-		AlphaBlendEnable = false;
-		AlphaTestEnable = false;
-		StencilEnable = false;
-		Clipping = false;
-		CullMode = NONE;
 	}
 	pass p1
 	{
 		VertexShader = compile vs_3_0 FrameVS();
 		PixelShader = compile ps_3_0 HBlur();
-		ZEnable = false;
-		ZWriteEnable = false;
-        AlphaBlendEnable = false;
-		AlphaTestEnable = false;
-		StencilEnable = false;
-		Clipping = false;
-		CullMode = NONE;
 	}
 	pass p2
 	{
 		VertexShader = compile vs_3_0 FrameVS();
 		PixelShader = compile ps_3_0 VBlur();
-		ZEnable = false;
-		ZWriteEnable = false;
-        AlphaBlendEnable = false;
-		AlphaTestEnable = false;
-		StencilEnable = false;
-		Clipping = false;
-		CullMode = NONE;
 	}
 	pass p3
 	{
 		VertexShader = compile vs_1_1 FrameVS();
 		PixelShader = compile ps_2_0 Combine();
-		ZEnable = false;
-		ZWriteEnable = false;
-        AlphaBlendEnable = false;
-		AlphaTestEnable = false;
-		StencilEnable = false;
-		Clipping = false;
-		CullMode = NONE;
 	}
 }

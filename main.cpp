@@ -18,6 +18,7 @@
 #include "KeyActions.h"
 #include "Detouring.h"
 #include "SaveManager.h"
+#include "FPS.h"
 
 #define VERSION "1.5"
 
@@ -67,6 +68,8 @@ bool WINAPI DllMain(HMODULE hDll, DWORD dwReason, PVOID pvReserved) {
 		SaveManager::get().init();
 
 		earlyDetour();
+
+		if(Settings::get().getMaxFPS() != 30) applyFPSPatch();
 
 		return true;
 	} else if(dwReason == DLL_PROCESS_DETACH) {

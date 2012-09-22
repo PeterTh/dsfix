@@ -1,3 +1,16 @@
+22-09-2012 -- version 1.5 beta
+==============================
+Bugfixes:
+- fixed issue with SSAO being rendered on top of particle effects/fog/water, instead of below them
+- improved method of determining when to apply SMAA/SSAO, better renderstate management
+  (may fix random display corruption issue)
+- tweaked SSAO a bit
+New features:
+- Can load .dds texture overrides in addition to .png
+- Can set the desired target FPS of the game in the .ini, thanks to Clément Barnier!
+  (This now also works correctly together with the intro skip feature)
+
+
 14-09-2012 -- version 1.4 beta
 ==============================
 Bugfixes:

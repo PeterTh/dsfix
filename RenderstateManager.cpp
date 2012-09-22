@@ -177,6 +177,12 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 					//if(takeScreenshot) D3DXSaveTextureToFile("0effect_pre.bmp", D3DXIFF_BMP, tex, NULL);
 					//if(takeScreenshot) D3DXSaveTextureToFile("0effect_z.bmp", D3DXIFF_BMP, zTex, NULL);
 					storeRenderState();
+					d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
+					d3ddev->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+					d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+					d3ddev->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+					d3ddev->SetRenderState(D3DRS_CLIPPING, FALSE);
+					d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 					d3ddev->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
 					// perform SSAO
 					if(vssao && doVssao) {
@@ -386,7 +392,7 @@ HRESULT RSManager::redirectPresent(CONST RECT *pSourceRect, CONST RECT *pDestRec
 	}
 	if(timingIntroMode) {
 		skippedPresents++;
-		if(skippedPresents>=300) {
+		if(skippedPresents >= 300 * Settings::get().getMaxFPS()/30) {
 			SDLOG(1, "Intro mode ended (timeout)!\n");
 			timingIntroMode = false;
 		}
@@ -626,7 +632,12 @@ HRESULT RSManager::redirectD3DXCreateTextureFromFileInMemoryEx(LPDIRECT3DDEVICE9
 		char buffer[128];
 		sprintf_s(buffer, "dsfix/tex_override/%08x.png", hash);
 		if(fileExists(buffer)) {
-			SDLOG(3, "Texture override! hash: %8x\n", SrcDataSize, hash);
+			SDLOG(3, "Texture override (png)! hash: %8x\n", SrcDataSize, hash);
+			return D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+		}
+		sprintf_s(buffer, "dsfix/tex_override/%08x.dds", hash);
+		if(fileExists(buffer)) {
+			SDLOG(3, "Texture override (dds)! hash: %8x\n", SrcDataSize, hash);
 			return D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
 		}
 	}

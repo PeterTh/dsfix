@@ -162,8 +162,7 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 		++mainRTuses;
 	}
 
-	// effects
-	if(mainRTuses == 2 && mainRT && zSurf && ((smaa && doSmaa) || (vssao && doVssao))) { // we are switching away from the initial 3D-rendered image, do effects
+	if(mainRTuses == 2 && mainRT && zSurf && (vssao && doVssao)) { // we are switching away from the initial 3D-rendered image, do SSAO
 		IDirect3DSurface9 *oldRenderTarget;
 		d3ddev->GetRenderTarget(0, &oldRenderTarget);
 		if(oldRenderTarget == mainRT) {
@@ -189,15 +188,41 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 						vssao->go(tex, zTex, rgbaBuffer1Surf);
 						d3ddev->StretchRect(rgbaBuffer1Surf, NULL, oldRenderTarget, NULL, D3DTEXF_NONE);
 					}
+					restoreRenderState();
+					zTex->Release();
+					//if(takeScreenshot) D3DXSaveSurfaceToFile("1effect_buff.bmp", D3DXIFF_BMP, rgbaBuffer1Surf, NULL, NULL);
+					//if(takeScreenshot) D3DXSaveSurfaceToFile("1effect_post.bmp", D3DXIFF_BMP, oldRenderTarget, NULL, NULL);
+				}
+				tex->Release();				
+			}
+		}
+		oldRenderTarget->Release();
+	}
+
+	if(mainRTuses == 5 && mainRT && zSurf && (smaa && doSmaa)) { // time to do SMAA
+		IDirect3DSurface9 *oldRenderTarget;
+		d3ddev->GetRenderTarget(0, &oldRenderTarget);
+		if(oldRenderTarget == mainRT) {
+			// final renderbuffer has to be from texture, just making sure here
+			if(IDirect3DTexture9* tex = getSurfTexture(oldRenderTarget)) {
+				// check size just to make even more sure
+				D3DSURFACE_DESC desc;
+				oldRenderTarget->GetDesc(&desc);
+				if(desc.Width == Settings::get().getRenderWidth() && desc.Height == Settings::get().getRenderHeight()) {
+					storeRenderState();
+					d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
+					d3ddev->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+					d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+					d3ddev->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+					d3ddev->SetRenderState(D3DRS_CLIPPING, FALSE);
+					d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+					d3ddev->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
 					// perform SMAA processing
 					if(smaa && doSmaa) {
 						smaa->go(tex, tex, rgbaBuffer1Surf, SMAA::INPUT_LUMA);
 						d3ddev->StretchRect(rgbaBuffer1Surf, NULL, oldRenderTarget, NULL, D3DTEXF_NONE);
 					}
 					restoreRenderState();
-					zTex->Release();
-					//if(takeScreenshot) D3DXSaveSurfaceToFile("1effect_buff.bmp", D3DXIFF_BMP, rgbaBuffer1Surf, NULL, NULL);
-					//if(takeScreenshot) D3DXSaveSurfaceToFile("1effect_post.bmp", D3DXIFF_BMP, oldRenderTarget, NULL, NULL);
 				}
 				tex->Release();				
 			}

@@ -75,8 +75,8 @@ void HUD::go(IDirect3DTexture9 *input, IDirect3DSurface9 *dst) {
 	effect->SetFloat(opacityHandle, 1.0f);
 	effect->Begin(&passes, 0);
 	effect->BeginPass(0);
-	rect(0.35f, 0.3f, 0.4f, 0.4f, 
-		 0.35f + 0.15f*iscale, 0.30f + 0.15f*iscale, 0.4f*scale, 0.4f*scale); 
+	rect(0.37f, 0.22f, 0.4f, 0.5f, 
+		 0.37f + 0.15f*iscale, 0.22f + 0.15f*iscale, 0.4f*scale, 0.5f*scale); 
 	effect->EndPass();
 	effect->End();
 

@@ -16,11 +16,12 @@ SETTING(unsigned, SsaoStrength, "ssaoStrength", 0);
 
 SETTING(bool, UnlockFPS, "unlockFPS", 0);
 SETTING(unsigned, FPSLimit, "FPSlimit", 30);
+SETTING(unsigned, FPSThreshold, "FPSthreshold", 29);
 
 SETTING(bool, EnableTripleBuffering, "enableTripleBuffering", 0);
 
 // Logging Options
-SETTING(unsigned, LogLevel, "logLevel", 10);
+SETTING(unsigned, LogLevel, "logLevel", 0);
 	
 // Cursor Options
 SETTING(bool, DisableCursor, "disableCursor", false);

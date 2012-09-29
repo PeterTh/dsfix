@@ -11,6 +11,7 @@
 #include "Hash.h"
 #include "Detouring.h"
 #include "WindowManager.h"
+#include "FPS.h"
 
 RSManager RSManager::instance;
 
@@ -68,6 +69,8 @@ HRESULT RSManager::redirectPresent(CONST RECT *pSourceRect, CONST RECT *pDestRec
 	mainRT = NULL;
 	mainRTuses = 0;
 	zSurf = NULL;
+	
+	frameTimeManagement();
 	//if(Settings::get().getEnableTripleBuffering()) return ((IDirect3DDevice9Ex*)d3ddev)->PresentEx(NULL, NULL, NULL, NULL, D3DPRESENT_FORCEIMMEDIATE);
 	return d3ddev->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
 }
@@ -239,7 +242,7 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 		oldRenderTarget->Release();
 	}
 
-	if(mainRTuses == 5 && mainRT && zSurf && (smaa && doSmaa)) { // time to do SMAA
+	if(mainRTuses == 5 && !lowFPSmode && mainRT && zSurf && (smaa && doSmaa)) { // time to do SMAA
 		IDirect3DSurface9 *oldRenderTarget;
 		d3ddev->GetRenderTarget(0, &oldRenderTarget);
 		if(oldRenderTarget == mainRT) {
@@ -250,6 +253,13 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 				oldRenderTarget->GetDesc(&desc);
 				if(desc.Width == Settings::get().getRenderWidth() && desc.Height == Settings::get().getRenderHeight()) {
 					storeRenderState();
+					d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
+					//d3ddev->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+					//d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+					//d3ddev->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+					//d3ddev->SetRenderState(D3DRS_CLIPPING, FALSE);
+					d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+					d3ddev->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
 					// perform SMAA processing
 					if(smaa && doSmaa) {
 						smaa->go(tex, tex, rgbaBuffer1Surf, SMAA::INPUT_LUMA);
@@ -783,4 +793,23 @@ HRESULT RSManager::redirectSetRenderState(D3DRENDERSTATETYPE State, DWORD Value)
 	//	SDLOG(3, "SetRenderState suppressed: %u  -  %u\n", State, Value);
 	//}
 	//return D3D_OK;
+}
+
+void RSManager::frameTimeManagement() {
+	float renderTime = getElapsedTime() - lastPresentTime;
+
+	// implement FPS threshold
+	float thresholdRenderTime = (1000.0f / Settings::get().getFPSThreshold()) + 0.2f;
+	if(renderTime > thresholdRenderTime) lowFPSmode = true;
+	else if(renderTime < thresholdRenderTime - 1.0f) lowFPSmode = false;
+
+	// implement FPS cap
+	if(Settings::get().getUnlockFPS()) {
+		float desiredRenderTime = (1000.0f / Settings::get().getFPSLimit()) - 0.2f;
+		while(renderTime < desiredRenderTime) {
+			SwitchToThread();
+			renderTime = getElapsedTime() - lastPresentTime;
+		}
+		lastPresentTime = getElapsedTime();
+	}
 }

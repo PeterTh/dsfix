@@ -17,6 +17,9 @@ class RSManager {
 	D3DVIEWPORT9 viewport;
 	IDirect3DDevice9 *d3ddev;
 
+	float lastPresentTime;
+	bool lowFPSmode;
+
 	bool doSmaa;
 	SMAA* smaa;
 	
@@ -158,6 +161,9 @@ public:
 	HRESULT redirectSetTexture(DWORD Stage, IDirect3DBaseTexture9 * pTexture);
 	HRESULT redirectSetDepthStencilSurface(IDirect3DSurface9* pNewZStencil);
 	HRESULT redirectPresent(CONST RECT * pSourceRect, CONST RECT * pDestRect, HWND hDestWindowOverride, CONST RGNDATA * pDirtyRegion);
+
+	void frameTimeManagement();
+
 	HRESULT redirectDrawIndexedPrimitiveUP(D3DPRIMITIVETYPE PrimitiveType, UINT MinIndex, UINT NumVertices, UINT PrimitiveCount, CONST void* pIndexData, D3DFORMAT IndexDataFormat, CONST void* pVertexStreamZeroData, UINT VertexStreamZeroStride);
 	HRESULT redirectDrawPrimitiveUP(D3DPRIMITIVETYPE PrimitiveType, UINT PrimitiveCount, CONST void* pVertexStreamZeroData, UINT VertexStreamZeroStride);
 	HRESULT redirectD3DXCreateTextureFromFileInMemoryEx(LPDIRECT3DDEVICE9 pDevice, LPCVOID pSrcData, UINT SrcDataSize, UINT Width, UINT Height, UINT MipLevels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, DWORD Filter, DWORD MipFilter, D3DCOLOR ColorKey, D3DXIMAGE_INFO* pSrcInfo, PALETTEENTRY* pPalette, LPDIRECT3DTEXTURE9* ppTexture);

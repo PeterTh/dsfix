@@ -26,7 +26,6 @@ static DWORD HighGraphics;
 static DWORD TaskFuncPtr;
 static LARGE_INTEGER timerFreq;
 static LARGE_INTEGER counterAtStart;
-static unsigned int lastTime, currentTime, deltaTime;
 
 //----------------------------------------------------------------------------------------
 //Functions
@@ -68,10 +67,10 @@ void updateAnimationStepTime(float stepTime, float minFPS, float maxFPS) {
 }
 
 // Timer
-unsigned int GetElapsedTime(void) {
+float getElapsedTime(void) {
 	LARGE_INTEGER c;
 	QueryPerformanceCounter(&c);
-	return (unsigned int)( (c.QuadPart - counterAtStart.QuadPart) * 1000 / timerFreq.QuadPart );
+	return (float)( (c.QuadPart - counterAtStart.QuadPart) * 1000.0f / (float)timerFreq.QuadPart );
 }
 
 // Detour
@@ -138,7 +137,7 @@ void renderLoop(void) {
 	float minFPS = 10.0f;
 	QueryPerformanceFrequency(&timerFreq);
 	QueryPerformanceCounter(&counterAtStart);
-	lastTime = 0;
+	float lastTime = 0.0f;
 	unsigned int minStep = (unsigned int)(1.0f/maxFPS*1000);
 
 	// Render loop
@@ -233,12 +232,8 @@ void renderLoop(void) {
 
 		// If rendering was performed, update animation step-time
 		if((taskFunc == 2) || (taskFunc == 5)) {
-			currentTime = GetElapsedTime();
-			deltaTime = currentTime - lastTime;
-
-			// Dirty frame-rate cap
-			if(deltaTime < minStep)
-				Sleep(minStep - deltaTime);
+			float currentTime = getElapsedTime();
+			float deltaTime = currentTime - lastTime;
 
 			// Update step-time
 			updateAnimationStepTime((float)deltaTime, minFPS, maxFPS);

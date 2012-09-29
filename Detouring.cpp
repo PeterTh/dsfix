@@ -7,11 +7,10 @@
 
 bool timingIntroMode = false;
 
-static DWORD (WINAPI * TrueSleepEx)(DWORD dwMilliseconds, BOOL bAlertable) = SleepEx;
 DWORD WINAPI DetouredSleepEx(DWORD dwMilliseconds, BOOL bAlertable) {
-	SDLOG(12, "T %6lu: Detouring: Sleep for %lu ms\n", GetCurrentThreadId(), dwMilliseconds);
-	return TrueSleepEx(dwMilliseconds, bAlertable);
-	//return 0;
+	//SDLOG(12, "T %6lu: Detouring: Sleep for %lu ms\n", GetCurrentThreadId(), dwMilliseconds);
+	//return TrueSleepEx(dwMilliseconds, bAlertable);
+	return 0;
 }
 
 #include <mmsystem.h>
@@ -76,25 +75,23 @@ HRESULT WINAPI DetouredD3DXCompileShader(_In_ LPCSTR pSrcData, _In_ UINT srcData
 }
 
 void earlyDetour() {
+	QueryPerformanceFrequency(&countsPerSec);
 	DetourTransactionBegin();
 	DetourUpdateThread(GetCurrentThread());
 	DetourAttach(&(PVOID&)oDirect3DCreate9, hkDirect3DCreate9);
 	DetourTransactionCommit();
 }
 
-void startDetour() {
-	DetourRestoreAfterWith();
-	QueryPerformanceFrequency(&countsPerSec);
-		
+void startDetour() {		
 	DetourTransactionBegin();
 	DetourUpdateThread(GetCurrentThread());
-	DetourAttach(&(PVOID&)TrueSleepEx, DetouredSleepEx);
-	DetourAttach(&(PVOID&)TrueTimeGetTime, DetouredTimeGetTime);
+	//DetourAttach(&(PVOID&)TrueSleepEx, DetouredSleepEx);
+	//DetourAttach(&(PVOID&)TrueTimeGetTime, DetouredTimeGetTime);
 	if(Settings::get().getSkipIntro()) DetourAttach(&(PVOID&)TrueQueryPerformanceCounter, DetouredQueryPerformanceCounter);
-	TrueD3DXCreateTexture = (D3DXCreateTexture_FNType)DetourFindFunction("d3dx9_43.dll", "D3DXCreateTexture");
+	//TrueD3DXCreateTexture = (D3DXCreateTexture_FNType)DetourFindFunction("d3dx9_43.dll", "D3DXCreateTexture");
 	TrueD3DXCreateTextureFromFileInMemory = (D3DXCreateTextureFromFileInMemory_FNType)DetourFindFunction("d3dx9_43.dll", "D3DXCreateTextureFromFileInMemory");
 	TrueD3DXCreateTextureFromFileInMemoryEx = (D3DXCreateTextureFromFileInMemoryEx_FNType)DetourFindFunction("d3dx9_43.dll", "D3DXCreateTextureFromFileInMemoryEx");
-	DetourAttach(&(PVOID&)TrueD3DXCreateTexture, DetouredD3DXCreateTexture);
+	//DetourAttach(&(PVOID&)TrueD3DXCreateTexture, DetouredD3DXCreateTexture);
 	DetourAttach(&(PVOID&)TrueD3DXCreateTextureFromFileInMemory, DetouredD3DXCreateTextureFromFileInMemory);
 	DetourAttach(&(PVOID&)TrueD3DXCreateTextureFromFileInMemoryEx, DetouredD3DXCreateTextureFromFileInMemoryEx);
 	//TrueD3DXCompileShader = (D3DXCompileShader_FNType)DetourFindFunction("d3dx9_43.dll", "D3DXCompileShader");
@@ -112,10 +109,10 @@ void endDetour() {
 	//if(Settings::get().getSkipIntro()) {
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
-		DetourDetach(&(PVOID&)TrueSleepEx, DetouredSleepEx);
-		DetourDetach(&(PVOID&)TrueTimeGetTime, DetouredTimeGetTime);
+		//DetourDetach(&(PVOID&)TrueSleepEx, DetouredSleepEx);
+		//DetourDetach(&(PVOID&)TrueTimeGetTime, DetouredTimeGetTime);
 		if(Settings::get().getSkipIntro()) DetourDetach(&(PVOID&)TrueQueryPerformanceCounter, DetouredQueryPerformanceCounter);
-		DetourDetach(&(PVOID&)TrueD3DXCreateTexture, DetouredD3DXCreateTexture);
+		//DetourDetach(&(PVOID&)TrueD3DXCreateTexture, DetouredD3DXCreateTexture);
 		DetourDetach(&(PVOID&)TrueD3DXCreateTextureFromFileInMemory, DetouredD3DXCreateTextureFromFileInMemory);
 		DetourDetach(&(PVOID&)TrueD3DXCreateTextureFromFileInMemoryEx, DetouredD3DXCreateTextureFromFileInMemoryEx);
 		DetourDetach(&(PVOID&)oDirect3DCreate9, hkDirect3DCreate9);

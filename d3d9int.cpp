@@ -9,6 +9,7 @@
 #include "RenderstateManager.h"
 
 HRESULT APIENTRY hkIDirect3D9::QueryInterface(REFIID riid,  void **ppvObj) {
+	SDLOG(1, "hkIDirect3D9::QueryInterface\n");
 	return m_pD3Dint->QueryInterface(riid,  ppvObj);
 }
 
@@ -48,10 +49,24 @@ HRESULT APIENTRY hkIDirect3D9::CreateDevice(UINT Adapter, D3DDEVTYPE DeviceType,
 	HRESULT hRet;
 	if(Settings::get().getD3DAdapterOverride() >= 0) {
 		SDLOG(0, " - Adapter override to %d\n", Settings::get().getD3DAdapterOverride());
-		hRet = m_pD3Dint->CreateDevice(Settings::get().getD3DAdapterOverride(), DeviceType, hFocusWindow, BehaviorFlags, &adjusted, ppReturnedDeviceInterface);
-	} else {
-		hRet = m_pD3Dint->CreateDevice(Adapter, DeviceType, hFocusWindow, BehaviorFlags, &adjusted, ppReturnedDeviceInterface);
+		Adapter = Settings::get().getD3DAdapterOverride();
 	}
+	//if(Settings::get().getEnableTripleBuffering()) {
+	//	D3DDISPLAYMODEEX modeEx;
+	//	D3DDISPLAYMODEEX *pModeEx = NULL;
+	//	if(!adjusted.Windowed) {
+	//		pModeEx = &modeEx;
+	//		modeEx.Size = sizeof(D3DDISPLAYMODEEX);
+	//		modeEx.Format = adjusted.BackBufferFormat;
+	//		modeEx.Height = adjusted.BackBufferHeight;
+	//		modeEx.Width = adjusted.BackBufferWidth;
+	//		modeEx.RefreshRate = adjusted.FullScreen_RefreshRateInHz;
+	//		modeEx.ScanLineOrdering = D3DSCANLINEORDERING_PROGRESSIVE;
+	//	}
+	//	hRet = ((IDirect3D9Ex*)m_pD3Dint)->CreateDeviceEx(Adapter, DeviceType, hFocusWindow, BehaviorFlags, &adjusted, pModeEx, (IDirect3DDevice9Ex**)ppReturnedDeviceInterface);
+	//} else {
+		hRet = m_pD3Dint->CreateDevice(Adapter, DeviceType, hFocusWindow, BehaviorFlags, &adjusted, ppReturnedDeviceInterface);
+	//}
 	if(SUCCEEDED(hRet)) {
 		hkIDirect3DDevice9 *ret = new hkIDirect3DDevice9(ppReturnedDeviceInterface, &adjusted, this);
 	}

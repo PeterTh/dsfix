@@ -1,3 +1,12 @@
+29-09-1012 -- version 1.6 beta
+==============================
+- Unlocked framerate. Thanks to the hard work of Clément Barnier, the framerate can now be unlocked entirely.
+  (look into the .ini for details)
+- Fixed the SMAA issue introduced in 1.5 (with edges touching the skybox)
+- Fixed the HUD issues with damage numbers and subtitles (other issues remain)
+- Various small performance tweaks
+
+
 22-09-2012 -- version 1.5 beta
 ==============================
 Bugfixes:

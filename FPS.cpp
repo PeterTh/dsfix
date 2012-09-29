@@ -1,5 +1,5 @@
-// Dark Souls FPS fix by Clement Barnier
-////////////////////////////////////////
+// Dark Souls FPS fix by Clement Barnier (Nwks)
+///////////////////////////////////////////////
 
 #include "FPS.h"
 
@@ -7,19 +7,33 @@
 
 #include "Settings.h"
 #include "main.h"
-
-static DWORD originalBase = NULL;
-static DWORD imageBase = NULL;
+#include "Detouring.h"
 
 void enableGFWLCompatibility(void);
 
-void writeToAddress(void* Data, DWORD Address, int Size) {
-	DWORD oldProtect;
-	VirtualProtect((LPVOID)Address, Size, PAGE_READWRITE, &oldProtect);
-	memcpy((void*)Address, Data, Size);
-	VirtualProtect((LPVOID)Address, Size, oldProtect, &oldProtect);
-}
+#define JMP32_SZ 5
+#define CALL32_SZ 5
+#define NOPOP 0x90
+#define JMPOP 0xE9
+#define CALLOP 0xE8
 
+// Globals
+static DWORD originalBase = NULL;
+static DWORD imageBase = NULL;
+
+// Hook Globals
+static DWORD HighGraphics;
+static DWORD TaskFuncPtr;
+static LARGE_INTEGER timerFreq;
+static LARGE_INTEGER counterAtStart;
+static unsigned int lastTime, currentTime, deltaTime;
+
+//----------------------------------------------------------------------------------------
+//Functions
+//----------------------------------------------------------------------------------------
+
+// Misc
+//------------------------------------
 DWORD getAbsoluteAddress(DWORD offset) {
 	if (imageBase)
 		return imageBase + offset;
@@ -31,47 +45,276 @@ DWORD convertAddress(DWORD Address) {
 	return getAbsoluteAddress(Address - originalBase);
 }
 
+// Memory
+//------------------------------------
+void writeToAddress(void* Data, DWORD Address, int Size) {
+	DWORD oldProtect;
+	VirtualProtect((LPVOID)Address, Size, PAGE_READWRITE, &oldProtect);
+	memcpy((void*)Address, Data, Size);
+	VirtualProtect((LPVOID)Address, Size, oldProtect, &oldProtect);
+}
+
+void updateAnimationStepTime(float stepTime, float minFPS, float maxFPS) {
+	float FPS = 1.0f/(stepTime/1000);
+
+	if (FPS < minFPS)
+		stepTime = minFPS;
+	else if (stepTime > maxFPS)
+		FPS = maxFPS;
+
+	float cappedStep = 1/(float)FPS;
+	DWORD data = *(DWORD*)&cappedStep;
+	writeToAddress(&data, convertAddress(0x012497F0), sizeof(data));
+}
+
+// Timer
+unsigned int GetElapsedTime(void) {
+	LARGE_INTEGER c;
+	QueryPerformanceCounter(&c);
+	return (unsigned int)( (c.QuadPart - counterAtStart.QuadPart) * 1000 / timerFreq.QuadPart );
+}
+
+// Detour
+//------------------------------------
+//Make sure to adjust length according to instructions below detoured address!
+//Partially overwritten instructions will mess-up disassembly and capacity to debug
+void *DetourApply(BYTE *orig, BYTE *hook, int len, int type) {
+	BYTE OP, SZ;
+
+	if (type == 0) {
+		OP = JMPOP;
+		SZ = JMP32_SZ;
+	}
+	else if(type == 1) {
+		OP = CALLOP;
+		SZ = CALL32_SZ;
+	}
+
+	DWORD dwProt = 0;
+	BYTE *jmp = (BYTE*)malloc(len+SZ);
+	VirtualProtect(orig, len, PAGE_READWRITE, &dwProt);
+	memcpy(jmp, orig, len);
+
+	jmp += len; // increment to the end of the copied bytes
+	jmp[0] = OP;
+	*(DWORD*)(jmp+1) = (DWORD)(orig+len - jmp) - SZ;
+
+	memset(orig, NOPOP, len); 
+
+	orig[0] = OP;
+	*(DWORD*)(orig+1) = (DWORD)(hook - orig) - SZ;
+	VirtualProtect(orig, len, dwProt, 0);
+
+	return (jmp-len);
+}
+
+
+void DetourRemove(BYTE *src, BYTE *jmp, int len) {
+	DWORD dwProt = 0;
+	VirtualProtect(src, len, PAGE_READWRITE, &dwProt);
+	memcpy(src, jmp, len);
+	VirtualProtect(src, len, dwProt, 0);
+}
+
+//----------------------------------------------------------------------------------------
+//Game hooks
+//----------------------------------------------------------------------------------------
+
+// Render Loop
+//----------------------------------------------------------------------------------------
+void renderLoop(void) {
+	bool run = true;
+	DWORD threadID = GetCurrentThreadId();
+
+	int taskFunc;
+	DWORD task;
+
+	//Pointers conversion
+	DWORD pGetTaskF = convertAddress(0x00577330);
+	DWORD pCleanTaskF = convertAddress(0x00577450);
+
+	// FPS regulation
+	float maxFPS = (float)Settings::get().getFPSLimit();
+	float minFPS = 10.0f;
+	QueryPerformanceFrequency(&timerFreq);
+	QueryPerformanceCounter(&counterAtStart);
+	lastTime = 0;
+	unsigned int minStep = (unsigned int)(1.0f/maxFPS*1000);
+
+	// Render loop
+	do {
+		// Get Job & state
+		_asm { 
+			PUSH 1
+			MOV ECX, HighGraphics
+			CALL pGetTaskF				//Get task pointer
+			MOV task, EAX				//Store task pointer (EAX)
+			MOV ECX, [EAX+0x0C]			//Get task function
+			MOV taskFunc, ECX			//Store function
+		}
+		if (task == (HighGraphics+0x08))	//No task
+			break;		
+
+		switch (taskFunc) {
+			// Exit loop
+		case 0:
+			_asm {
+				MOV EDI, TaskFuncPtr
+				MOV EAX, [EDI]
+				MOV EDX, [EAX+0x0C]
+				MOV ECX, EDI
+				CALL EDX
+			}
+			run = false;
+			break;
+			// Start Watch-dog Thread
+		case 1:
+			_asm {
+				MOV ESI, task
+				MOV EDI, TaskFuncPtr
+				MOV ECX, [ESI+0x2C]
+				MOV EDX, [ESI+0x28]
+				MOV EAX, [EDI]
+				PUSH ECX
+				MOV ECX, [ESI+0x24]
+				PUSH EDX
+				MOV EDX, [EAX+0x08]
+				PUSH ECX
+				MOV ECX, EDI
+				CALL EDX
+			}
+			break;
+			// Update and/or Render
+		case 2: 
+			_asm {
+				MOV ESI, task
+				MOV EDI, TaskFuncPtr
+				MOV ECX, [ESI+0x24]
+				MOV EAX, [EDI]
+				MOV EDX, [EAX+0x10]
+				PUSH ECX
+				MOV ECX, EDI
+				CALL EDX
+			}
+			break;
+			// Do nothing (was debug log)
+		case 3:
+			_asm {
+				MOV EDI, TaskFuncPtr
+				MOV EAX, [EDI]
+				MOV EDX, [EAX+0x14]
+				MOV ECX, TaskFuncPtr
+				CALL EDX
+			}
+			break;
+			// Do nothing (was debug log)		
+		case 4:
+			_asm {
+				MOV EDI, TaskFuncPtr
+				MOV EAX, [EDI]
+				MOV EDX, [EAX+0x18]
+				MOV ECX, TaskFuncPtr
+				CALL EDX
+			}
+			break;
+			// Force Render (caused by watchdog timeout)
+		case 5:
+			_asm {
+				MOV EDI, TaskFuncPtr
+				MOV EAX, [EDI]
+				MOV EDX, [EAX+0x1C]
+				MOV ECX, TaskFuncPtr
+				CALL EDX
+			}
+			break;
+		default:
+			break;
+		}
+
+		// If rendering was performed, update animation step-time
+		if((taskFunc == 2) || (taskFunc == 5)) {
+			currentTime = GetElapsedTime();
+			deltaTime = currentTime - lastTime;
+
+			// Dirty frame-rate cap
+			if(deltaTime < minStep)
+				Sleep(minStep - deltaTime);
+
+			// Update step-time
+			updateAnimationStepTime((float)deltaTime, minFPS, maxFPS);
+
+			lastTime = currentTime;
+		}
+
+		// Task cleanup
+		_asm {
+			MOV ESI, task
+			PUSH ESI
+			MOV ECX, HighGraphics
+			CALL pCleanTaskF
+		}
+
+	} while (run);
+}
+
+// Render Entry
+//----------------------------------------------------------------------------------------
+__declspec(naked) void renderLoopEntry(void) {
+#define LOCALOFFSET __LOCAL_SIZE
+	// Prologue
+	_asm {
+		// Create Stack frame
+		PUSH EBX
+		PUSH EBP
+		MOV EBP, ESP
+		SUB ESP, LOCALOFFSET			
+		// Retrieve stack parameters
+		MOV EBX, [EBP+0x0C]
+		PUSH ESI
+		PUSH EDI
+		// Store parameters to globals
+		MOV HighGraphics, EBX		//HighGraphics: EBP
+		MOV TaskFuncPtr, ECX		//Pointer to functions structure: EDI
+	}
+
+	// Start Recorder Process
+	renderLoop();
+
+	// Epilogue
+	__asm {
+		POP EDI
+		POP ESI
+		MOV ESP, EBP
+		POP EBP
+		POP EBX
+		RETN 4
+	}
+}
+
 void applyFPSPatch() {
 	enableGFWLCompatibility();
 
 	// Get imageBase
+	HANDLE exeHandle = NULL;
 	originalBase = 0x0400000;
-	HANDLE exeHandle = GetModuleHandle(NULL);
+	exeHandle = GetModuleHandle(NULL);
 
 	if(exeHandle != NULL)
 		imageBase = (DWORD)exeHandle;
 
-	SDLOG(0, "FPS patch: image base %p\n", imageBase);
-
-	// Apply patch
+	// Patches
+	//--------------------------------------------------------------
 	DWORD address;
-	BYTE data16;
 	DWORD data;
-	DWORD64 data64;
-	
-	// Desired max. FPS
-	double FPS = Settings::get().getMaxFPS();
 
-	// Gameplay FPS patch
-	address = convertAddress(0x012497F0);
-	float dt = 1/(float)FPS;
-	data = *(DWORD*)&dt;
-	writeToAddress(&data, address, sizeof(data));
-
-	// Target FPS patch (display ?)
-	address = convertAddress(0x01249958);
-	data64 = *(DWORD64*)&FPS;
-	writeToAddress(&data64, address, sizeof(data64));
-
-	// Max FPS patch
-	address = convertAddress(0x00644BBA);
-	data16 = (BYTE)FPS;
-	writeToAddress(&data16, address, sizeof(data16));
-
-	// Override FPS Divider		
+	// Override D3D Presentation Interval
 	address = convertAddress(0x010275AE); 
-	data = 1;
+	data = 5; //Set to immediate
 	writeToAddress(&data, address, sizeof(data));
-	
-	SDLOG(0, "FPS patch: patched to %4.1lf maximum FPS\n", FPS);
+
+	// Detour Render loop entry
+	address = convertAddress(0x00BD6000);
+	DetourApply((BYTE*)address, (BYTE*)renderLoopEntry, 6, 0);
+		
+	SDLOG(0, "FPS rate unlocked\n");
 }

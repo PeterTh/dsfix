@@ -4,6 +4,8 @@
 
 #include <detours.h>
 
+static DWORD (WINAPI * TrueSleepEx)(DWORD dwMilliseconds, BOOL bAlertable) = SleepEx;
+
 typedef HRESULT (WINAPI * D3DXCreateTextureFromFileInMemory_FNType)(_In_ LPDIRECT3DDEVICE9 pDevice, _In_ LPCVOID pSrcData, _In_ UINT SrcDataSize, _Out_ LPDIRECT3DTEXTURE9 *ppTexture);
 extern D3DXCreateTextureFromFileInMemory_FNType TrueD3DXCreateTextureFromFileInMemory;
 

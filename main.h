@@ -18,7 +18,15 @@
 
 #pragma once
 
+#define VERSION "1.6"
+
+#define RELEASE_VER
+
+#ifndef RELEASE_VER
 #define SDLOG(_level, _str, ...) if(Settings::get().getLogLevel() > _level) { sdlog(_str, __VA_ARGS__); }
+#else
+#define SDLOG(_level, _str, ...) {}
+#endif
 #define SAFERELEASE(_p) { if(_p) { (_p)->Release(); (_p) = NULL; } }
 #define SAFEDELETE(_p) { if(_p) { delete (_p); (_p) = NULL; } }
 

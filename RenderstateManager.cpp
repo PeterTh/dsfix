@@ -42,11 +42,34 @@ void RSManager::releaseResources() {
 	SDLOG(0, "RenderstateManager resource release completed\n");
 }
 
-
-void RSManager::dumpSurface(const char* name, IDirect3DSurface9* surface) {
-	char fullname[128];
-	sprintf_s(fullname, 128, "dump%03d_%s.tga", dumpCaptureIndex++, name);
-	D3DXSaveSurfaceToFile(fullname, D3DXIFF_TGA, surface, NULL, NULL);
+HRESULT RSManager::redirectPresent(CONST RECT *pSourceRect, CONST RECT *pDestRect, HWND hDestWindowOverride, CONST RGNDATA *pDirtyRegion) {
+	capturing = false;
+	if(captureNextFrame) {
+		capturing = true;
+		captureNextFrame = false;
+		SDLOG(0, "== CAPTURING FRAME ==\n")
+	}
+	if(timingIntroMode) {
+		skippedPresents++;
+		if(skippedPresents >= 300u && !Settings::get().getUnlockFPS()) {
+			SDLOG(1, "Intro mode ended (timeout)!\n");
+			timingIntroMode = false;
+		}
+		if(skippedPresents >= 3000u) {
+			SDLOG(1, "Intro mode ended (full timeout)!\n");
+			timingIntroMode = false;
+		}
+		return S_OK;
+	}
+	skippedPresents = 0;
+	hudStarted = false;
+	nrts = 0;
+	doft[0] = 0; doft[1] = 0; doft[2] = 0;
+	mainRT = NULL;
+	mainRTuses = 0;
+	zSurf = NULL;
+	//if(Settings::get().getEnableTripleBuffering()) return ((IDirect3DDevice9Ex*)d3ddev)->PresentEx(NULL, NULL, NULL, NULL, D3DPRESENT_FORCEIMMEDIATE);
+	return d3ddev->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
 }
 
 D3DPRESENT_PARAMETERS RSManager::adjustPresentationParameters(const D3DPRESENT_PARAMETERS *pPresentationParameters) {
@@ -72,7 +95,24 @@ D3DPRESENT_PARAMETERS RSManager::adjustPresentationParameters(const D3DPRESENT_P
 		SDLOG(0, " - - Backbuffer(s): %4u x %4u %16s *%d \n", ret.BackBufferWidth, ret.BackBufferHeight, D3DFormatToString(ret.BackBufferFormat), ret.BackBufferCount);
 		SDLOG(0, " - - PresentationInterval: %2u   Windowed: %5s    Refresh: %3u Hz\n", ret.PresentationInterval, ret.Windowed ? "true" : "false", ret.FullScreen_RefreshRateInHz);
 	}
+	//if(Settings::get().getEnableTripleBuffering()) {
+	//	ret.SwapEffect = D3DSWAPEFFECT_FLIPEX;
+	//	ret.PresentationInterval = D3DPRESENT_FORCEIMMEDIATE;
+	//	ret.BackBufferCount = 2;
+	//	ret.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
+	//	ret.SwapEffect = D3DSWAPEFFECT_DISCARD;
+	//}
+	//if(Settings::get().getUnlockFPS()) {
+	//	ret.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+	//	ret.SwapEffect = D3DSWAPEFFECT_DISCARD;
+	//}
 	return ret;
+}
+
+void RSManager::dumpSurface(const char* name, IDirect3DSurface9* surface) {
+	char fullname[128];
+	sprintf_s(fullname, 128, "dump%03d_%s.tga", dumpCaptureIndex++, name);
+	D3DXSaveSurfaceToFile(fullname, D3DXIFF_TGA, surface, NULL, NULL);
 }
 
 void RSManager::registerMainRenderTexture(IDirect3DTexture9* pTexture) {
@@ -153,7 +193,7 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 		mainRT = pRenderTarget;
 	}
 
-	if(nrts == 11) { // we are switching to the RT used to store the Z value in R (among other things)
+	if(nrts == 11) { // we are switching to the RT used to store the Z value in the 24 RGB bits (among other things)
 		// lets store it for later use
 		zSurf = pRenderTarget;
 	}
@@ -177,11 +217,11 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 					//if(takeScreenshot) D3DXSaveTextureToFile("0effect_z.bmp", D3DXIFF_BMP, zTex, NULL);
 					storeRenderState();
 					d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
-					d3ddev->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-					d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-					d3ddev->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-					d3ddev->SetRenderState(D3DRS_CLIPPING, FALSE);
-					d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+					//d3ddev->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+					//d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+					//d3ddev->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+					//d3ddev->SetRenderState(D3DRS_CLIPPING, FALSE);
+					d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
 					d3ddev->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
 					// perform SSAO
 					if(vssao && doVssao) {
@@ -210,13 +250,6 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 				oldRenderTarget->GetDesc(&desc);
 				if(desc.Width == Settings::get().getRenderWidth() && desc.Height == Settings::get().getRenderHeight()) {
 					storeRenderState();
-					d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
-					d3ddev->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-					d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-					d3ddev->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-					d3ddev->SetRenderState(D3DRS_CLIPPING, FALSE);
-					d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-					d3ddev->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
 					// perform SMAA processing
 					if(smaa && doSmaa) {
 						smaa->go(tex, tex, rgbaBuffer1Surf, SMAA::INPUT_LUMA);
@@ -383,8 +416,8 @@ HRESULT RSManager::redirectSetTexture(DWORD Stage, IDirect3DBaseTexture9 * pText
 		SDLOG(1, "Intro mode started!\n");
 		timingIntroMode = true;
 	}
-	if(timingIntroMode && (isTextureGuiElements1(pTexture) || isTextureMenuscreenLogo(pTexture))) {
-		SDLOG(1, "Intro mode ended!\n");
+	if(timingIntroMode && (isTextureGuiElements1(pTexture) || isTextureMenuscreenLogo(pTexture) || isTextureText(pTexture))) {
+		SDLOG(1, "Intro mode ended due to texture!\n");
 		timingIntroMode = false;
 	}
 	if(!hudStarted && isTextureHudHealthbar(pTexture)) {
@@ -406,31 +439,6 @@ HRESULT RSManager::redirectSetDepthStencilSurface(IDirect3DSurface9* pNewZStenci
 	//}
 	//lastReplacement = -1;
 	return d3ddev->SetDepthStencilSurface(pNewZStencil);
-}
-
-HRESULT RSManager::redirectPresent(CONST RECT *pSourceRect, CONST RECT *pDestRect, HWND hDestWindowOverride, CONST RGNDATA *pDirtyRegion ) {
-	capturing = false;
-	if(captureNextFrame) {
-		capturing = true;
-		captureNextFrame = false;
-		SDLOG(0, "== CAPTURING FRAME ==\n")
-	}
-	if(timingIntroMode) {
-		skippedPresents++;
-		if(skippedPresents >= 300 * Settings::get().getMaxFPS()/30) {
-			SDLOG(1, "Intro mode ended (timeout)!\n");
-			timingIntroMode = false;
-		}
-		return S_OK;
-	}
-	skippedPresents = 0;
-	hudStarted = false;
-	nrts = 0;
-	doft[0] = 0; doft[1] = 0; doft[2] = 0;
-	mainRT = NULL;
-	mainRTuses = 0;
-	zSurf = NULL;
-	return d3ddev->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
 }
 
 void RSManager::registerTexture(IDirect3DTexture9* ppTexture) {
@@ -518,7 +526,7 @@ void RSManager::reloadGauss() {
 
 HRESULT RSManager::redirectDrawIndexedPrimitiveUP(D3DPRIMITIVETYPE PrimitiveType, UINT MinIndex, UINT NumVertices, UINT PrimitiveCount, CONST void* pIndexData, D3DFORMAT IndexDataFormat, CONST void* pVertexStreamZeroData, UINT VertexStreamZeroStride) {
 	//if(onHudRT) {
-	//	SDLOG(0, "HUD render: primitive type: %d, MinIndex: %u, NumVertices: %u, PrimitiveCount: %u, IndexDataFormat: %s\n", PrimitiveType, MinIndex, NumVertices, PrimitiveCount, D3DUtil_D3DFormatToString(IndexDataFormat));
+	//	SDLOG(0, "HUD render: primitive type: %d, MinIndex: %u, NumVertices: %u, PrimitiveCount: %u, IndexDataFormat: %s\n", PrimitiveType, MinIndex, NumVertices, PrimitiveCount, D3DFormatToString(IndexDataFormat));
 
 	//	// Print vertex decl type
 	//	IDirect3DVertexDeclaration9* vDecl;
@@ -527,17 +535,17 @@ HRESULT RSManager::redirectDrawIndexedPrimitiveUP(D3DPRIMITIVETYPE PrimitiveType
 	//	UINT numElements;
 	//	vDecl->GetDeclaration(decl, &numElements);
 	//	for(size_t i=0; i<numElements; ++i) {
-	//		SDLOG(0, "element %u -- stream: %d, offset: %d, type: %s, usage: %s\n", i, decl->Stream, decl->Offset, D3DUtil_D3DDeclTypeToString((D3DDECLTYPE)decl->Type), D3DUtil_D3DDeclUsageToString((D3DDECLUSAGE)decl->Usage));
+	//		SDLOG(0, "element %u -- stream: %d, offset: %d, type: %s, usage: %s\n", i, decl->Stream, decl->Offset, D3DDeclTypeToString((D3DDECLTYPE)decl->Type), D3DDeclUsageToString((D3DDECLUSAGE)decl->Usage));
 	//	}
 	//	vDecl->Release();
 	//	
 	//	// Print indices
-	//	SDLOG(0, "Indices: \n");
-	//	INT16 *indices = (INT16*)pIndexData;
-	//	for(size_t i=0; i<PrimitiveCount+2; ++i) {
-	//		SDLOG(0, "%8hd, ", indices[i]);
-	//	}
-	//	SDLOG(0, "\n");
+	//	//SDLOG(0, "Indices: \n");
+	//	//INT16 *indices = (INT16*)pIndexData;
+	//	//for(size_t i=0; i<PrimitiveCount+2; ++i) {
+	//	//	SDLOG(0, "%8hd, ", indices[i]);
+	//	//}
+	//	//SDLOG(0, "\n");
 
 	//	// Print vertices
 	//	SDLOG(0, "Vertices: \n");
@@ -608,8 +616,38 @@ HRESULT RSManager::redirectDrawPrimitiveUP(D3DPRIMITIVETYPE PrimitiveType, UINT 
 		t->Release();
 		if(hide) return D3D_OK;
 	}
-	if(pausedHudRT) resumeHudRendering();
+	if(pausedHudRT) {
+		IDirect3DBaseTexture9 *t;
+		d3ddev->GetTexture(0, &t);
+		bool isText = isTextureText(t);
+		SDLOG(4, "On HUD, PAUSED, redirectDrawPrimitiveUP texture: %s\n", getTextureName(t));
+		t->Release();
+		//// Print vertices
+		//SDLOG(0, "Vertices: \n");
+		//INT16 *values = (INT16*)pVertexStreamZeroData;
+		//for(size_t i=0; i<PrimitiveCount+2; ++i) {
+		//	SDLOG(0, "%8hd, ", values[i]);
+		//	if((i+1)%2 == 0) SDLOG(0, "; ");
+		//	if((i+1)%8 == 0) SDLOG(0, "\n");
+		//}
+		if(isText && PrimitiveCount >= 12) resumeHudRendering();
+	}
+	bool subbed = false;
+	if(onHudRT) {
+		IDirect3DBaseTexture9 *t;
+		d3ddev->GetTexture(0, &t);
+		bool isText = isTextureText(t);
+		bool isSub = isTextureText00(t);
+		SDLOG(4, "On HUD, redirectDrawPrimitiveUP texture: %s\n", getTextureName(t));
+		t->Release();
+		//if(isText && PrimitiveCount <= 10) pauseHudRendering();
+		if(isSub) {
+			pauseHudRendering();
+			subbed = true;
+		}
+	}
 	HRESULT hr = d3ddev->DrawPrimitiveUP(PrimitiveType, PrimitiveCount, pVertexStreamZeroData, VertexStreamZeroStride);
+	if(subbed) resumeHudRendering();
 	//if(onHudRT) {
 	//	if(takeScreenshot) dumpSurface("HUD_PrimUP", rgbaBuffer1Surf);
 	//}
@@ -670,12 +708,12 @@ HRESULT RSManager::redirectD3DXCreateTextureFromFileInMemoryEx(LPDIRECT3DDEVICE9
 }
 
 void RSManager::storeRenderState() {
+	prevStateBlock->Capture();
 	prevVDecl = NULL;
 	prevDepthStencilSurf = NULL;
 	d3ddev->GetVertexDeclaration(&prevVDecl);
 	d3ddev->GetDepthStencilSurface(&prevDepthStencilSurf);
 	d3ddev->SetDepthStencilSurface(depthStencilSurf);
-	prevStateBlock->Capture();
 }
 
 void RSManager::restoreRenderState() {

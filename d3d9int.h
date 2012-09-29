@@ -2,11 +2,9 @@
 
 #include "d3d9.h"
 
-interface hkIDirect3D9 : public IDirect3D9
-{
+interface hkIDirect3D9 : public IDirect3D9 {
 public:
-	hkIDirect3D9(IDirect3D9 **ppIDirect3D9)
-	{
+	hkIDirect3D9(IDirect3D9 **ppIDirect3D9) {
 		m_pD3Dint = *ppIDirect3D9;
 		*ppIDirect3D9 = this;
 	}

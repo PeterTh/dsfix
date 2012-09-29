@@ -14,7 +14,10 @@ SETTING(unsigned, SmaaQuality, "smaaQuality", 0);
 
 SETTING(unsigned, SsaoStrength, "ssaoStrength", 0);
 
-SETTING(unsigned, MaxFPS, "maxFPS", 30);
+SETTING(bool, UnlockFPS, "unlockFPS", 0);
+SETTING(unsigned, FPSLimit, "FPSlimit", 30);
+
+SETTING(bool, EnableTripleBuffering, "enableTripleBuffering", 0);
 
 // Logging Options
 SETTING(unsigned, LogLevel, "logLevel", 10);

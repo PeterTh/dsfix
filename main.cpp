@@ -20,8 +20,6 @@
 #include "SaveManager.h"
 #include "FPS.h"
 
-#define VERSION "1.5"
-
 // globals
 tDirect3DCreate9 oDirect3DCreate9 = Direct3DCreate9;
 tDirectInput8Create oDirectInput8Create;
@@ -69,7 +67,7 @@ bool WINAPI DllMain(HMODULE hDll, DWORD dwReason, PVOID pvReserved) {
 
 		earlyDetour();
 
-		if(Settings::get().getMaxFPS() != 30) applyFPSPatch();
+		if(Settings::get().getUnlockFPS()) applyFPSPatch();
 
 		return true;
 	} else if(dwReason == DLL_PROCESS_DETACH) {

@@ -56,13 +56,14 @@ HRESULT APIENTRY hkIDirect3DDevice9::SetViewport(CONST D3DVIEWPORT9 *pViewport) 
 	Settings::get().init();
 	SDLOG(6, "SetViewport X / Y - W x H : %4lu / %4lu  -  %4lu x %4lu\n", pViewport->X, pViewport->Y, pViewport->Width, pViewport->Height);
 	RSManager::get().setViewport(*pViewport);
-	D3DVIEWPORT9 copy;
-	memcpy(&copy, pViewport, sizeof(D3DVIEWPORT9));
-	if(copy.Height == 720) {
-		//copy.Height *= 2;
-		//SDLOG(" - DOUBLED!\n");
-	}
-	return m_pD3Ddev->SetViewport(&copy); 
+	return m_pD3Ddev->SetViewport(pViewport); 
+	//D3DVIEWPORT9 copy;
+	//memcpy(&copy, pViewport, sizeof(D3DVIEWPORT9));
+	//if(copy.Height == Settings::get().getRenderHeight() && copy.Width == Settings::get().getRenderWidth()) {
+	//	copy.Width /= 2;
+	//	copy.Height /= 2;
+	//}
+	//return m_pD3Ddev->SetViewport(&copy); 
 }
 
 HRESULT APIENTRY hkIDirect3DDevice9::DrawIndexedPrimitive(D3DPRIMITIVETYPE Type, INT BaseVertexIndex, UINT MinVertexIndex, UINT NumVertices, UINT startIndex, UINT primCount) {
@@ -205,12 +206,16 @@ HRESULT APIENTRY hkIDirect3DDevice9::CreateTexture(UINT Width, UINT Height, UINT
 		if(res == D3D_OK && (Usage & D3DUSAGE_RENDERTARGET)) RSManager::get().registerMainRenderTexture(*ppTexture);
 		return res;
 	}
-	if((Width == 512 && Height == 360) || (Width == 256 && Height == 180) || (Width == 128 && Height == 90)) {
+	//if((Width == 512 && Height == 360) || (Width == 256 && Height == 180) || (Width == 128 && Height == 90)) { // !
+	if((Width == 512 && Height == 360) || (Width == 256 && Height == 180)) {
 		UINT w,h;
 		getDofRes(Width, Height, w, h);
 		SDLOG(1, " - OVERRIDE DoF to %4u/%4u!\n", w, h);
 		return m_pD3Ddev->CreateTexture(w, h, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
 	}
+	//if((Width == 16 && Height == 16) || (Width == 32 && Height == 32) || (Width == 64 && Height == 64)) {
+	//	return m_pD3Ddev->CreateTexture(Width*2, Height*2, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
+	//}
 	if(Width == 1280 && Height == 720) {
 		SDLOG(1, " - OVERRIDE to %4u/%4u!\n", Settings::get().getRenderWidth(), Settings::get().getRenderHeight());
 		return m_pD3Ddev->CreateTexture(Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
@@ -220,8 +225,8 @@ HRESULT APIENTRY hkIDirect3DDevice9::CreateTexture(UINT Width, UINT Height, UINT
 	return res;
 }
 
-HRESULT APIENTRY hkIDirect3DDevice9::CreateVertexBuffer(UINT Length,DWORD Usage,DWORD FVF,D3DPOOL Pool,IDirect3DVertexBuffer9** VERTexBuffer,HANDLE* pSharedHandle) {
-	return m_pD3Ddev->CreateVertexBuffer(Length, Usage, FVF, Pool, VERTexBuffer,pSharedHandle);
+HRESULT APIENTRY hkIDirect3DDevice9::CreateVertexBuffer(UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9** VERTexBuffer, HANDLE* pSharedHandle) {
+	return m_pD3Ddev->CreateVertexBuffer(Length, Usage, FVF, Pool, VERTexBuffer, pSharedHandle);
 }
 
 HRESULT APIENTRY hkIDirect3DDevice9::CreateVertexDeclaration(CONST D3DVERTEXELEMENT9* pVertexElements,IDirect3DVertexDeclaration9** ppDecl) {

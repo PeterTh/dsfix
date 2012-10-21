@@ -7,6 +7,7 @@ class Settings {
 	static Settings instance;
 	
 	bool inited, langOverridden;
+	unsigned curFPSlimit;
 
 	void read(char* source, bool& value);
 	void read(char* source, int& value);
@@ -47,5 +48,9 @@ public:
 		#include "Settings.def"
 		#undef SETTING
 	}
+
+	unsigned getCurrentFPSLimit();
+	void setCurrentFPSLimit(unsigned limit);
+	void toggle30FPSLimit();
 };
 

@@ -39,10 +39,6 @@ VSSAO::VSSAO(IDirect3DDevice9 *device, int width, int height, unsigned strength)
 	HRESULT hr = D3DXCreateEffectFromFile(device, GetDirectoryFile("dsfix\\VSSAO.fx"), &defines.front(), NULL, flags, NULL, &effect, &errors);
 	if(hr != D3D_OK) SDLOG(0, "ERRORS:\n %s\n", errors->GetBufferPointer());
 	
-
-	// Load thickness texture
-	D3DXCreateTextureFromFile(device, GetDirectoryFile("dsfix\\vssaothicknessmodel.png"), &thicknessTex);
-
 	// Create buffers
 	device->CreateTexture(width, height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &buffer1Tex, NULL);
     buffer1Tex->GetSurfaceLevel(0, &buffer1Surf);
@@ -53,7 +49,6 @@ VSSAO::VSSAO(IDirect3DDevice9 *device, int width, int height, unsigned strength)
 	depthTexHandle = effect->GetParameterByName(NULL, "depthTex2D");
 	frameTexHandle = effect->GetParameterByName(NULL, "frameTex2D");
     prevPassTexHandle = effect->GetParameterByName(NULL, "prevPassTex2D");
-    thicknessTexHandle = effect->GetParameterByName(NULL, "thicknessTex1D");
 }
 
 VSSAO::~VSSAO() {
@@ -62,7 +57,6 @@ VSSAO::~VSSAO() {
 	SAFERELEASE(buffer1Tex);
 	SAFERELEASE(buffer2Surf);
 	SAFERELEASE(buffer2Tex);
-	SAFERELEASE(thicknessTex);
 }
 
 void VSSAO::go(IDirect3DTexture9 *frame, IDirect3DTexture9 *depth, IDirect3DSurface9 *dst) {
@@ -84,7 +78,6 @@ void VSSAO::mainSsaoPass(IDirect3DTexture9* depth, IDirect3DSurface9* dst) {
 
     // Setup variables.
     effect->SetTexture(depthTexHandle, depth);
-    effect->SetTexture(thicknessTexHandle, thicknessTex);
 
     // Do it!
     UINT passes;

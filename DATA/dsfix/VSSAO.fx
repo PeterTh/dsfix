@@ -7,8 +7,8 @@
 
 extern float scale = 1; //downsampling scale, 1 is highest quality but slowest
 extern float aoRadiusMultiplier = 1.0; //Linearly multiplies the radius of the AO Sampling
-extern float ThicknessModel = 40.0; //units in space the AO assumes objects' thicknesses are
-extern float FOV = 75; //Field of View in Degrees
+extern float ThicknessModel = 25.0; //units in space the AO assumes objects' thicknesses are
+extern float FOV = 85; //Field of View in Degrees
 extern float luminosity_threshold = 0.3;
 
 #ifndef SSAO_STRENGTH_LOW
@@ -36,12 +36,11 @@ extern float aoStrengthMultiplier = 1.2;
 
 
 #define LUMINANCE_CONSIDERATION //comment this line to not take pixel brightness into account
-//#define RAW_SSAO //uncomment this line to show the raw ssao
 
 /***End Of User-controlled Variables***/
 static float2 rcpres = PIXEL_SIZE;
 static float aspect = rcpres.y/rcpres.x;
-static const float nearZ = 10.0;
+static const float nearZ = 1.0;
 static const float farZ = 5000.0;
 static const float2 g_InvFocalLen = { tan(0.5f*radians(FOV)) / rcpres.y * rcpres.x, tan(0.5f*radians(FOV)) };
 static const float depthRange = nearZ-farZ;
@@ -74,14 +73,6 @@ sampler passSampler = sampler_state
 	texture = <prevPassTex2D>;
 	AddressU = CLAMP;
 	AddressV = CLAMP;
-	MINFILTER = LINEAR;
-	MAGFILTER = LINEAR;
-};
-
-sampler thicknessSampler = sampler_state
-{
-	texture = <thicknessTex1D>;
-	AddressU = CLAMP;
 	MINFILTER = LINEAR;
 	MAGFILTER = LINEAR;
 };
@@ -139,30 +130,26 @@ static float sample_radius[N_SAMPLES] =
 
 float2 rand(in float2 uv) {
 	float noiseX = (frac(sin(dot(uv, float2(12.9898,78.233)*2.0)) * 43758.5453));
-	//float noiseY = sqrt(1-noiseX*noiseX);
-	float noiseY = (frac(sin(dot(uv, float2(12.9898,78.233))) * 43758.5453));
+	float noiseY = sqrt(1-noiseX*noiseX);
+	//float noiseY = (frac(sin(dot(uv, float2(12.9898,78.233))) * 43758.5453));
 	return float2(noiseX, noiseY);
 }
 
 float readDepth(in float2 coord : TEXCOORD0) {
 	float4 col = tex2D(depthSampler, coord);
-	float posZ = clamp((((1.0-col.z)/(256.0) + (1.0-col.y) + (1.0-col.x)*256))/5.0, 0.0, 1.0);
+	//float posZ = clamp((((1.0-col.z)/(256.0) + (1.0-col.y) + (1.0-col.x)*256))/5.0, 0.0, 1.0);
 	//float posZ = ((1.0-col.y) + 256.0*(1.0-col.x))/(5.0);
-	return ((2.0f * nearZ) / (nearZ + farZ - posZ * (farZ - nearZ)))*20.0;
-	//return log(pow(exp(((2.0f * nearZ) / (nearZ + farZ - posZ * (farZ - nearZ)))),20));
-	//return posZ / (depthRange - (depthRange - 1.0)*posZ);
-	//float posZ = ((1.0-col.y) + 256.0*(1.0-col.x));
-	//return posZ;
+	//return ((2.0f * nearZ) / (nearZ + farZ - posZ * (farZ - nearZ)))*20.0;
+	
+	float posZ = ((1.0-col.z) + (1.0-col.y)*256.0 + (1.0-col.x)*(257.0*256.0));
+	//return ((2.0f * nearZ) / (nearZ + farZ - posZ * (farZ - nearZ)));
+	return (posZ-nearZ)/farZ;
 }
 
 float3 getPosition(in float2 uv, in float eye_z) {
    uv = (uv * float2(2.0, -2.0) - float2(1.0, -1.0));
    float3 pos = float3(uv * g_InvFocalLen * eye_z, eye_z );
    return pos;
-}
-
-float getThicknessModel(in float depth) {
-	return ThicknessModel * tex1D(thicknessSampler, (depth-0.086)*20).r;
 }
 
 float4 ssao_Main( VSOUT IN ) : COLOR0 {
@@ -196,25 +183,20 @@ float4 ssao_Main( VSOUT IN ) : COLOR0 {
 		float curr_sample_depth = depthRange*readDepth(sample_coords);
 		
 		ao += clamp(0,curr_sample_radius+sample_center_depth-curr_sample_depth,2*curr_sample_radius);
-		ao -= clamp(0,curr_sample_radius+sample_center_depth-curr_sample_depth-getThicknessModel(depth),2*curr_sample_radius);
+		ao -= clamp(0,curr_sample_radius+sample_center_depth-curr_sample_depth-ThicknessModel,2*curr_sample_radius);
 		s += 2*curr_sample_radius;
 	}
 
 	ao /= s;
 	
 	// adjust for close and far away
-	//if(depth<0.08) ao = lerp(ao, 0.0, (0.08-depth)*25);
+	if(depth<0.1) ao = lerp(ao, 0.0, (0.1-depth)*10.0);
 	//if(depth>0.1) ao = lerp(ao, 0.0, 1.0);
 
 	ao = 1.0-ao*aoStrengthMultiplier;
 	
 	//return float4(depth,depth,depth,1);
 	return float4(ao,ao,ao,1);
-}
-
-float pureDepth(in float2 coord : TEXCOORD0) {
-	float4 dcol = tex2D(depthSampler, coord);
-	return (((1.0-dcol.z)/(256.0) + (1.0-dcol.y) + (1.0-dcol.x)*256))/8.0;
 }
 
 float4 HBlur( VSOUT IN ) : COLOR0 {
@@ -226,15 +208,7 @@ float4 HBlur( VSOUT IN ) : COLOR0 {
 	blurred += tex2D(passSampler, IN.UVCoord + float2(rcpres.x*3.2307692308, 0)).r * 0.0702702703;
 	blurred += tex2D(passSampler, IN.UVCoord - float2(rcpres.x*3.2307692308, 0)).r * 0.0702702703;
 	
-	//return color;
 	return blurred;
-
-	//float centerDepth = pureDepth(IN.UVCoord);
-	//float factor = 0.0;
-	//factor += abs(centerDepth - pureDepth(IN.UVCoord + float2(rcpres.x, 0)))*5.0;
-	//factor += abs(centerDepth - pureDepth(IN.UVCoord - float2(rcpres.x, 0)))*5.0;
-
-	//return lerp(blurred, color, factor);
 }
 
 float4 VBlur( VSOUT IN ) : COLOR0 {
@@ -246,15 +220,7 @@ float4 VBlur( VSOUT IN ) : COLOR0 {
 	blurred += tex2D(passSampler, IN.UVCoord + float2(0, rcpres.y*3.2307692308)).r * 0.0702702703;
 	blurred += tex2D(passSampler, IN.UVCoord - float2(0, rcpres.y*3.2307692308)).r * 0.0702702703;
 	
-	//return color;
 	return blurred;
-
-	//float centerDepth = pureDepth(IN.UVCoord);
-	//float factor = 0.0;
-	//factor += abs(centerDepth - pureDepth(IN.UVCoord + float2(0, rcpres.y)))*5.0;
-	//factor += abs(centerDepth - pureDepth(IN.UVCoord - float2(0, rcpres.y)))*5.0;
-
-	//return lerp(blurred, color, factor);
 }
 
 float4 Combine( VSOUT IN ) : COLOR0 {

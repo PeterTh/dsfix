@@ -14,17 +14,21 @@ ACTION(takeHudlessScreenshot, RSManager::get().enableTakeScreenshot())
 
 // Graphics Actions
 
-ACTION(toggleSMAA, RSManager::get().toggleSmaa())
+ACTION(toggleAA, RSManager::get().toggleAA())
 ACTION(toggleVSSAO, RSManager::get().toggleVssao())
 ACTION(toggleDofGauss, RSManager::get().toggleDofGauss())
 
 ACTION(toggleHUD, RSManager::get().toggleHideHud())
 ACTION(toggleHUDChanges, RSManager::get().toggleChangeHud())
 
+ACTION(toggle30FPSLimit, Settings::get().toggle30FPSLimit())
+
 // Development Actions
 
 ACTION(reloadSSAOEffect, RSManager::get().reloadVssao())
 ACTION(reloadGAUSSEffect, RSManager::get().reloadGauss())
+ACTION(reloadAAEffect, RSManager::get().reloadAA())
+
 ACTION(singleFrameFullCapture, RSManager::get().enableSingleFrameCapture())
 ACTION(userTrigger, SDLOG(0, "================================================================= USER TRIGGER ===\n"))
 ACTION(reloadHUDVertices, RSManager::get().reloadHudVertices());

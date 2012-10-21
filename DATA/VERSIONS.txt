@@ -1,3 +1,10 @@
+21-10-1012 -- version 1.8 beta
+==============================
+- Added FXAA option for AA
+- Added 30 FPS limit toggle
+- Greatly improved SSAO depth usage, removed thickness model hack
+
+
 29-09-1012 -- version 1.7 beta
 ==============================
 - Re-implemented the FPS limiter. It's quite exact now and also performed at a better point in time 

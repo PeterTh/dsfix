@@ -60,7 +60,7 @@ void updateAnimationStepTime(float stepTime, float minFPS, float maxFPS) {
 		stepTime = minFPS;
 	else if (stepTime > maxFPS)
 		FPS = maxFPS;
-
+	
 	float cappedStep = 1/(float)FPS;
 	DWORD data = *(DWORD*)&cappedStep;
 	writeToAddress(&data, convertAddress(0x012497F0), sizeof(data));
@@ -132,13 +132,9 @@ void renderLoop(void) {
 	DWORD pGetTaskF = convertAddress(0x00577330);
 	DWORD pCleanTaskF = convertAddress(0x00577450);
 
-	// FPS regulation
-	float maxFPS = (float)Settings::get().getFPSLimit();
-	float minFPS = 10.0f;
 	QueryPerformanceFrequency(&timerFreq);
 	QueryPerformanceCounter(&counterAtStart);
 	float lastTime = 0.0f;
-	unsigned int minStep = (unsigned int)(1.0f/maxFPS*1000);
 
 	// Render loop
 	do {
@@ -232,6 +228,9 @@ void renderLoop(void) {
 
 		// If rendering was performed, update animation step-time
 		if((taskFunc == 2) || (taskFunc == 5)) {
+			// FPS regulation
+			float maxFPS = (float)Settings::get().getCurrentFPSLimit();
+			float minFPS = 10.0f;
 			float currentTime = getElapsedTime();
 			float deltaTime = currentTime - lastTime;
 

@@ -17,7 +17,13 @@ RSManager RSManager::instance;
 
 void RSManager::initResources() {
 	SDLOG(0, "RenderstateManager resource initialization started\n");
-	if(Settings::get().getSmaaQuality()) smaa = new SMAA(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), (SMAA::Preset)(Settings::get().getSmaaQuality()-1));
+	if(Settings::get().getAAQuality()) {
+		if(Settings::get().getAAType() == "SMAA") {
+			smaa = new SMAA(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), (SMAA::Preset)(Settings::get().getAAQuality()-1));
+		} else {
+			fxaa = new FXAA(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), (FXAA::Quality)(Settings::get().getAAQuality()-1));
+		}
+	}
 	if(Settings::get().getSsaoStrength()) vssao = new VSSAO(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), Settings::get().getSsaoStrength()-1);
 	if(Settings::get().getDOFBlurAmount()) gauss = new GAUSS(d3ddev, Settings::get().getDOFOverrideResolution()*16/9, Settings::get().getDOFOverrideResolution());
 	if(Settings::get().getEnableHudMod()) hud = new HUD(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight());
@@ -37,6 +43,7 @@ void RSManager::releaseResources() {
 	SAFERELEASE(depthStencilSurf);
 	SAFERELEASE(prevStateBlock);
 	SAFEDELETE(smaa);
+	SAFEDELETE(fxaa);
 	SAFEDELETE(vssao);
 	SAFEDELETE(gauss);
 	SAFEDELETE(hud);
@@ -242,7 +249,7 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 		oldRenderTarget->Release();
 	}
 
-	if(mainRTuses == 5 && !lowFPSmode && mainRT && zSurf && (smaa && doSmaa)) { // time to do SMAA
+	if(mainRTuses == 5 && !lowFPSmode && mainRT && zSurf && doAA && (smaa || fxaa)) { // time to do SMAA
 		IDirect3DSurface9 *oldRenderTarget;
 		d3ddev->GetRenderTarget(0, &oldRenderTarget);
 		if(oldRenderTarget == mainRT) {
@@ -260,11 +267,10 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 					//d3ddev->SetRenderState(D3DRS_CLIPPING, FALSE);
 					d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
 					d3ddev->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
-					// perform SMAA processing
-					if(smaa && doSmaa) {
-						smaa->go(tex, tex, rgbaBuffer1Surf, SMAA::INPUT_LUMA);
-						d3ddev->StretchRect(rgbaBuffer1Surf, NULL, oldRenderTarget, NULL, D3DTEXF_NONE);
-					}
+					// perform AA processing
+					if(smaa) smaa->go(tex, tex, rgbaBuffer1Surf, SMAA::INPUT_LUMA);
+					else fxaa->go(tex, rgbaBuffer1Surf);
+					d3ddev->StretchRect(rgbaBuffer1Surf, NULL, oldRenderTarget, NULL, D3DTEXF_NONE);
 					restoreRenderState();
 				}
 				tex->Release();				
@@ -531,6 +537,17 @@ void RSManager::reloadGauss() {
 	SAFEDELETE(gauss); 
 	gauss = new GAUSS(d3ddev, Settings::get().getDOFOverrideResolution()*16/9, Settings::get().getDOFOverrideResolution());
 	SDLOG(0, "Reloaded GAUSS\n");
+}
+
+void RSManager::reloadAA() {
+	SAFEDELETE(smaa); 
+	SAFEDELETE(fxaa); 
+	if(Settings::get().getAAType() == "SMAA") {
+		smaa = new SMAA(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), (SMAA::Preset)(Settings::get().getAAQuality()-1));
+	} else {
+		fxaa = new FXAA(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), (FXAA::Quality)(Settings::get().getAAQuality()-1));
+	}
+	SDLOG(0, "Reloaded AA\n");
 }
 
 
@@ -805,7 +822,7 @@ void RSManager::frameTimeManagement() {
 
 	// implement FPS cap
 	if(Settings::get().getUnlockFPS()) {
-		float desiredRenderTime = (1000.0f / Settings::get().getFPSLimit()) - 0.2f;
+		float desiredRenderTime = (1000.0f / Settings::get().getCurrentFPSLimit()) - 0.1f;
 		while(renderTime < desiredRenderTime) {
 			SwitchToThread();
 			renderTime = getElapsedTime() - lastPresentTime;

@@ -255,6 +255,7 @@
     <ClCompile Include="dinputWrapper.cpp" />
     <ClCompile Include="Effect.cpp" />
     <ClCompile Include="FPS.cpp" />
+    <ClCompile Include="FXAA.cpp" />
     <ClCompile Include="GAUSS.cpp" />
     <ClCompile Include="Hud.cpp" />
     <ClCompile Include="KeyActions.cpp" />
@@ -315,6 +316,7 @@
     <ClInclude Include="dinput.h" />
     <ClInclude Include="dinputWrapper.h" />
     <ClInclude Include="Effect.h" />
+    <ClInclude Include="FXAA.h" />
     <ClInclude Include="GAUSS.h" />
     <ClInclude Include="Hash.h" />
     <ClInclude Include="FPS.h" />

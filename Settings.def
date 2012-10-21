@@ -10,7 +10,8 @@ SETTING(unsigned, DOFOverrideResolution, "dofOverrideResolution", 0);
 SETTING(bool, DisableDofScaling, "disableDofScaling", false);
 SETTING(unsigned, DOFBlurAmount, "dofBlurAmount", 0);
 
-SETTING(unsigned, SmaaQuality, "smaaQuality", 0);
+SETTING(unsigned, AAQuality, "aaQuality", 0);
+SETTING(std::string, AAType, "aaType", "FXAA");
 
 SETTING(unsigned, SsaoStrength, "ssaoStrength", 0);
 

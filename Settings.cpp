@@ -34,6 +34,8 @@ void Settings::load() {
 	if(getOverrideLanguage().length() >= 2 && getOverrideLanguage().find("none") != 0) {
 		performLanguageOverride();
 	}
+
+	curFPSlimit = getFPSLimit();
 }
 
 void Settings::report() {
@@ -60,6 +62,17 @@ void Settings::shutdown() {
 		undoLanguageOverride();
 		inited = false;
 	}
+}
+
+unsigned Settings::getCurrentFPSLimit() {
+	return curFPSlimit;
+}
+void Settings::setCurrentFPSLimit(unsigned limit) {
+	curFPSlimit = limit;
+}
+void Settings::toggle30FPSLimit() {
+	if(curFPSlimit == 30) curFPSlimit = getFPSLimit();
+	else curFPSlimit = 30;
 }
 
 

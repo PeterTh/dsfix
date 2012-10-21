@@ -6,6 +6,7 @@
 
 #include "d3d9.h"
 #include "SMAA.h"
+#include "FXAA.h"
 #include "VSSAO.h"
 #include "GAUSS.h"
 #include "HUD.h"
@@ -20,8 +21,9 @@ class RSManager {
 	float lastPresentTime;
 	bool lowFPSmode;
 
-	bool doSmaa;
+	bool doAA;
 	SMAA* smaa;
+	FXAA* fxaa;
 	
 	bool doVssao;
 	VSSAO* vssao;
@@ -106,8 +108,8 @@ public:
 		return instance;
 	}
 
-	RSManager() : smaa(NULL), vssao(NULL), gauss(NULL), rgbaBuffer1Surf(NULL), rgbaBuffer1Tex(NULL),
-			inited(false), doSmaa(true), doVssao(true), doDofGauss(true), doHud(true), captureNextFrame(false), capturing(false), hudStarted(false), takeScreenshot(false), hideHud(false),
+	RSManager() : smaa(NULL), fxaa(NULL), vssao(NULL), gauss(NULL), rgbaBuffer1Surf(NULL), rgbaBuffer1Tex(NULL),
+			inited(false), doAA(true), doVssao(true), doDofGauss(true), doHud(true), captureNextFrame(false), capturing(false), hudStarted(false), takeScreenshot(false), hideHud(false),
 			mainRenderTexIndex(0), mainRenderSurfIndex(0), dumpCaptureIndex(0), numKnownTextures(0), foundKnownTextures(0), skippedPresents(0) {
 		#define TEXTURE(_name, _hash) ++numKnownTextures;
 		#include "Textures.def"
@@ -131,13 +133,14 @@ public:
 	void enableSingleFrameCapture();
 	void enableTakeScreenshot();
 	bool takingScreenshot() { return takeScreenshot; }
-	void toggleSmaa() { doSmaa = !doSmaa; }
+	void toggleAA() { doAA = !doAA; }
 	void toggleVssao() { doVssao = !doVssao; }
 	void toggleHideHud() { hideHud = !hideHud; }
 	void toggleChangeHud() { doHud = !doHud; }
 	void toggleDofGauss() { doDofGauss = !doDofGauss; }
 	void reloadVssao();
 	void reloadGauss();
+	void reloadAA();
 
 	bool allowStateChanges() { return !onHudRT; }
 

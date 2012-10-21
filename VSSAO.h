@@ -23,10 +23,8 @@ private:
 	IDirect3DSurface9* buffer1Surf;
 	IDirect3DTexture9* buffer2Tex;
 	IDirect3DSurface9* buffer2Surf;
-	
-	IDirect3DTexture9* thicknessTex;
 
-	D3DXHANDLE depthTexHandle, frameTexHandle, prevPassTexHandle, thicknessTexHandle;
+	D3DXHANDLE depthTexHandle, frameTexHandle, prevPassTexHandle;
 	
 	void mainSsaoPass(IDirect3DTexture9 *depth, IDirect3DSurface9 *dst);
 	void vBlurPass(IDirect3DTexture9 *depth, IDirect3DTexture9* src, IDirect3DSurface9* dst);

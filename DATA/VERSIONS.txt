@@ -1,3 +1,13 @@
+25-10-1012 -- version 1.9 beta
+==============================
+- Added 2 new ambient occlusion algorithms: HBAO and SCAO
+- Added scale option for ambient occlusion on lower-end systems
+- Disabled hotkeys when Dark Souls is not active
+- Reinstated the texture filtering option with slightly better implementation
+- Rework WindowManager::resize to center the window along with resizing, and call on startup (wT)
+- Fix prevExStyle in WindowManager::toggleBorderlessFullscreen (wT)
+
+
 21-10-1012 -- version 1.8 beta
 ==============================
 - Added FXAA option for AA

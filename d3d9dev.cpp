@@ -560,21 +560,18 @@ HRESULT APIENTRY hkIDirect3DDevice9::SetRenderState(D3DRENDERSTATETYPE State, DW
 HRESULT APIENTRY hkIDirect3DDevice9::SetSamplerState(DWORD Sampler, D3DSAMPLERSTATETYPE Type, DWORD Value) {
 	SDLOG(14, "SetSamplerState sampler %lu:   state type: %s   value: %lu\n", Sampler, D3DSamplerStateTypeToString(Type), Value);
 	if(Settings::get().getFilteringOverride() == 2) {
-		m_pD3Ddev->SetSamplerState(Sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-		m_pD3Ddev->SetSamplerState(Sampler, D3DSAMP_MAGFILTER, D3DTEXF_ANISOTROPIC);
-		m_pD3Ddev->SetSamplerState(Sampler, D3DSAMP_MAXANISOTROPY, 16);
 		SDLOG(10, " - aniso sampling activated!\n");
-		if(Type != D3DSAMP_MINFILTER && Type != D3DSAMP_MAGFILTER && Type != D3DSAMP_MAXANISOTROPY) {
+		if(Type == D3DSAMP_MAXANISOTROPY) {
+			return m_pD3Ddev->SetSamplerState(Sampler, Type, 16);
+		} else if(Type != D3DSAMP_MINFILTER && Type != D3DSAMP_MAGFILTER) {
 			return m_pD3Ddev->SetSamplerState(Sampler, Type, Value);
 		} else {
-			return D3D_OK;
+			return m_pD3Ddev->SetSamplerState(Sampler, Type, D3DTEXF_ANISOTROPIC);
 		}
 	} else if(Settings::get().getFilteringOverride() == 1) {
-		if(Type == D3DSAMP_MINFILTER || Type == D3DSAMP_MAGFILTER) {
-			if(Value == D3DTEXF_POINT) {
-				SDLOG(10, " - linear override activated!\n");
-				return m_pD3Ddev->SetSamplerState(Sampler, Type, D3DTEXF_LINEAR);
-			}
+		if((Type == D3DSAMP_MINFILTER || Type == D3DSAMP_MIPFILTER) && (Value == D3DTEXF_POINT || Value == D3DTEXF_NONE)) {
+			SDLOG(10, " - linear override activated!\n");
+			return m_pD3Ddev->SetSamplerState(Sampler, Type, D3DTEXF_LINEAR);
 		}
 	}
 	return m_pD3Ddev->SetSamplerState(Sampler, Type, Value);

@@ -7,10 +7,12 @@
 
 #include "Effect.h"
 
-class VSSAO : public Effect {
+class SSAO : public Effect {
 public:
-    VSSAO(IDirect3DDevice9 *device, int width, int height, unsigned strength);
-    virtual ~VSSAO();
+	enum Type { VSSAO, HBAO, SCAO };
+
+    SSAO(IDirect3DDevice9 *device, int width, int height, unsigned strength, Type type);
+    virtual ~SSAO();
 
 	void go(IDirect3DTexture9 *frame, IDirect3DTexture9 *depth, IDirect3DSurface9 *dst);
 

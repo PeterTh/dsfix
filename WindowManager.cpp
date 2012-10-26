@@ -36,7 +36,7 @@ void WindowManager::toggleBorderlessFullscreen() {
 		lStyle &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZE | WS_MAXIMIZE | WS_SYSMENU);
 		::SetWindowLong(hwnd, GWL_STYLE, lStyle);
 		LONG lExStyle = ::GetWindowLong(hwnd, GWL_EXSTYLE);
-		prevExStyle = prevExStyle;
+		prevExStyle = lExStyle;
 		lExStyle &= ~(WS_EX_DLGMODALFRAME | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE);
 		::SetWindowLong(hwnd, GWL_EXSTYLE, lExStyle);
 		// adjust size & position
@@ -60,12 +60,26 @@ void WindowManager::toggleBorderlessFullscreen() {
 
 void WindowManager::resize(unsigned clientW, unsigned clientH) {
 	HWND hwnd = ::GetActiveWindow();
-	RECT desiredRect;
-	desiredRect.left = 0;
-	desiredRect.top = 0;
-	desiredRect.right = clientW;
-	desiredRect.bottom = clientH;
-	LONG lStyle = ::GetWindowLong(hwnd, GWL_STYLE);
-	::AdjustWindowRect(&desiredRect, lStyle, false);
-	::SetWindowPos(hwnd, NULL, 0, 0, desiredRect.right, desiredRect.bottom, SWP_NOZORDER);
+	// Store current window rect
+	::GetClientRect(hwnd, &prevWindowRect);
+	// Get monitor size
+	HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+	MONITORINFO info;
+	info.cbSize = sizeof(MONITORINFO);
+	GetMonitorInfo(monitor, &info);
+	int monitorWidth = info.rcMonitor.right - info.rcMonitor.left;
+	int monitorHeight = info.rcMonitor.bottom - info.rcMonitor.top;
+
+	// How much do we overlap or are smaller than the actual screen size
+	int widthDiff = monitorWidth - (clientW ? clientW : prevWindowRect.right);
+	int heightDiff = monitorHeight - (clientH ? clientH : prevWindowRect.bottom);
+
+ 	RECT desiredRect;
+	desiredRect.left = widthDiff / 2;
+	desiredRect.top = heightDiff / 2;
+	desiredRect.right = monitorWidth - (widthDiff / 2);
+	desiredRect.bottom = monitorHeight - (heightDiff / 2);
+ 	LONG lStyle = ::GetWindowLong(hwnd, GWL_STYLE);
+ 	::AdjustWindowRect(&desiredRect, lStyle, false);
+	::SetWindowPos(hwnd, NULL, desiredRect.left, desiredRect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 }

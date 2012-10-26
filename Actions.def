@@ -25,7 +25,9 @@ ACTION(toggle30FPSLimit, Settings::get().toggle30FPSLimit())
 
 // Development Actions
 
-ACTION(reloadSSAOEffect, RSManager::get().reloadVssao())
+ACTION(reloadVSSAOEffect, RSManager::get().reloadVssao())
+ACTION(reloadHBAOEffect, RSManager::get().reloadHbao())
+ACTION(reloadSCAOEffect, RSManager::get().reloadScao())
 ACTION(reloadGAUSSEffect, RSManager::get().reloadGauss())
 ACTION(reloadAAEffect, RSManager::get().reloadAA())
 

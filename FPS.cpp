@@ -57,8 +57,8 @@ void updateAnimationStepTime(float stepTime, float minFPS, float maxFPS) {
 	float FPS = 1.0f/(stepTime/1000);
 
 	if (FPS < minFPS)
-		stepTime = minFPS;
-	else if (stepTime > maxFPS)
+		FPS = minFPS;
+	else if (FPS > maxFPS)
 		FPS = maxFPS;
 	
 	float cappedStep = 1/(float)FPS;

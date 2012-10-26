@@ -14,10 +14,12 @@ SETTING(unsigned, AAQuality, "aaQuality", 0);
 SETTING(std::string, AAType, "aaType", "FXAA");
 
 SETTING(unsigned, SsaoStrength, "ssaoStrength", 0);
+SETTING(unsigned, SsaoScale, "ssaoScale", 0);
+SETTING(std::string, SsaoType, "ssaoType", "VSSAO");
 
 SETTING(bool, UnlockFPS, "unlockFPS", 0);
 SETTING(unsigned, FPSLimit, "FPSlimit", 30);
-SETTING(unsigned, FPSThreshold, "FPSthreshold", 29);
+SETTING(unsigned, FPSThreshold, "FPSthreshold", 28);
 
 SETTING(bool, EnableTripleBuffering, "enableTripleBuffering", 0);
 

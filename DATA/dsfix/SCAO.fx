@@ -1,12 +1,15 @@
-// Volumetric SSAO
-// Implemented by Tomerk for OBGE
-// Adapted and tweaked for Dark Souls by Durante
+// Stupidly Combined AO
+// Stupidly combines VSSAO and HBAO, by Durante
 
 /***User-controlled variables***/
 #define N_SAMPLES 9 //number of samples, currently do not change.
+#define N_DIRECTIONS 8 //number of directions to sample in, currently do not change.
+#define N_STEPS 5 //number of steps to raymarch, you may change The higher this is the higher the quality and the lower the performance.
 
-extern float aoRadiusMultiplier = 1.0; //Linearly multiplies the radius of the AO Sampling
+extern float vaoRadiusMultiplier = 1.0; //Linearly multiplies the radius of the AO Sampling
+extern float haoRadiusMultiplier = 5.0; //Linearly multiplies the radius of the AO Sampling
 extern float ThicknessModel = 25.0; //units in space the AO assumes objects' thicknesses are
+extern float Attenuation_Factor = 0.1; //Affects units in space the AO will extend to
 extern float FOV = 85; //Field of View in Degrees
 extern float luminosity_threshold = 0.3;
 
@@ -29,12 +32,12 @@ extern float aoStrengthMultiplier = 0.6;
 
 #ifdef SSAO_STRENGTH_MEDIUM
 extern float aoClamp = 0.5;
-extern float aoStrengthMultiplier = 0.9;
+extern float aoStrengthMultiplier = 0.8;
 #endif
 
 #ifdef SSAO_STRENGTH_HIGH
 extern float aoClamp = 0.2;
-extern float aoStrengthMultiplier = 1.3;
+extern float aoStrengthMultiplier = 1.2;
 #endif
 
 
@@ -99,6 +102,19 @@ VSOUT FrameVS(VSIN IN)
 	return OUT;
 }
 
+static float2 sample_offset_hb[N_DIRECTIONS] =
+{
+//#if N_DIRECTIONS >= 9
+	float2(1, 0),
+	float2(0.7071f, 0.7071f),
+	float2(0, 1),
+	float2(-0.7071f, 0.7071f),
+	float2(-1, 0),
+	float2(-0.7071f, -0.7071f),
+	float2(0, -1),
+	float2(0.7071f, -0.7071f)
+//#endif
+};
 
 static float2 sample_offset[N_SAMPLES] =
 {
@@ -138,13 +154,13 @@ float2 rand(in float2 uv) {
 
 float readDepth(in float2 coord : TEXCOORD0) {
 	float4 col = tex2D(depthSampler, coord);
-	//float posZ = clamp((((1.0-col.z)/(256.0) + (1.0-col.y) + (1.0-col.x)*256))/5.0, 0.0, 1.0);
-	//float posZ = ((1.0-col.y) + 256.0*(1.0-col.x))/(5.0);
-	//return ((2.0f * nearZ) / (nearZ + farZ - posZ * (farZ - nearZ)))*20.0;
-	
 	float posZ = ((1.0-col.z) + (1.0-col.y)*256.0 + (1.0-col.x)*(257.0*256.0));
-	//return ((2.0f * nearZ) / (nearZ + farZ - posZ * (farZ - nearZ)));
 	return (posZ-nearZ)/farZ;
+}
+float readDepthHb(in float2 coord : TEXCOORD0) {
+	float4 col = tex2D(depthSampler, coord);	
+	float posZ = ((1.0-col.z) + (1.0-col.y)*256.0 + (1.0-col.x)*(257.0*256.0));
+	return 1 - (posZ-nearZ)/farZ;
 }
 
 float3 getPosition(in float2 uv, in float eye_z) {
@@ -158,45 +174,99 @@ float4 ssao_Main( VSOUT IN ) : COLOR0 {
 	clip(1/SCALE-IN.UVCoord.y);	
 	IN.UVCoord.xy *= SCALE;
 
-	float depth = readDepth(IN.UVCoord);
-	float3 pos = getPosition(IN.UVCoord, depth);
-	float3 dx = ddx(pos);
-	float3 dy = ddy(pos);
-	float3 norm = normalize(cross(dx,dy));
-	norm.y *= -1;
+	float vao=0, hao=0;
 
-	float sample_depth;
+	// VSSAO
+	{
+		float depth = readDepth(IN.UVCoord);
+		float3 pos = getPosition(IN.UVCoord, depth);
+		float3 dx = ddx(pos);
+		float3 dy = ddy(pos);
+		float3 norm = normalize(cross(dx,dy));
+		norm.y *= -1;
 
-	float ao=0;
-	float s=0.0;
+		float sample_depth;
 
-	float2 rand_vec = rand(IN.UVCoord);
-	float2 sample_vec_divisor = g_InvFocalLen*depth*depthRange/(aoRadiusMultiplier*5000*rcpres);
-	float2 sample_center = IN.UVCoord + norm.xy/sample_vec_divisor*float2(1,aspect);
-	float sample_center_depth = depth*depthRange + norm.z*aoRadiusMultiplier*10;
+		float s=0.0;
+
+		float2 rand_vec = rand(IN.UVCoord);
+		float2 sample_vec_divisor = g_InvFocalLen*depth*depthRange/(vaoRadiusMultiplier*5000*rcpres);
+		float2 sample_center = IN.UVCoord + norm.xy/sample_vec_divisor*float2(1,aspect);
+		float sample_center_depth = depth*depthRange + norm.z*vaoRadiusMultiplier*10;
 	
-	for(int i = 0; i < N_SAMPLES; i++) {
-		float2 sample_vec = reflect(sample_offset[i], rand_vec);
-		sample_vec /= sample_vec_divisor;
-		float2 sample_coords = sample_center + sample_vec*float2(1,aspect);
+		for(int i = 0; i < N_SAMPLES; i++) {
+			float2 sample_vec = reflect(sample_offset[i], rand_vec);
+			sample_vec /= sample_vec_divisor;
+			float2 sample_coords = sample_center + sample_vec*float2(1,aspect);
 		
-		float curr_sample_radius = sample_radius[i]*aoRadiusMultiplier*10;
-		float curr_sample_depth = depthRange*readDepth(sample_coords);
+			float curr_sample_radius = sample_radius[i]*vaoRadiusMultiplier*10;
+			float curr_sample_depth = depthRange*readDepth(sample_coords);
 		
-		ao += clamp(0,curr_sample_radius+sample_center_depth-curr_sample_depth,2*curr_sample_radius);
-		ao -= clamp(0,curr_sample_radius+sample_center_depth-curr_sample_depth-ThicknessModel,2*curr_sample_radius);
-		s += 2*curr_sample_radius;
+			vao += clamp(0,curr_sample_radius+sample_center_depth-curr_sample_depth,2*curr_sample_radius);
+			vao -= clamp(0,curr_sample_radius+sample_center_depth-curr_sample_depth-ThicknessModel,2*curr_sample_radius);
+			s += 2*curr_sample_radius;
+		}
+
+		vao /= s;
+		if(depth<0.1) vao = lerp(vao, 0.0, (0.1-depth)*10.0);
+	}
+	
+	// HBAO
+	{
+		float depth = readDepthHb(IN.UVCoord);
+		float3 pos = getPosition(IN.UVCoord, depth);
+		float3 dx = ddx(pos);
+		float3 dy = ddy(pos);
+		float3 norm = normalize(cross(dx,dy));
+
+		float sample_depth;
+		float3 sample_pos;
+
+		float s = 0.0;
+	
+		float2 rand_vec = rand(IN.UVCoord);
+		float2 sample_vec_divisor = g_InvFocalLen*depth*depthRange/(haoRadiusMultiplier*5000*rcpres);
+		float2 sample_center = IN.UVCoord;
+	
+		for(int i = 0; i < N_DIRECTIONS; i++)
+		{
+			float theta = 0;
+			float temp_theta = 0;
+
+			float temp_ao = 0;
+			float curr_ao = 0;
+		
+			float3 occlusion_vector = float3(0,0,0);
+
+			float2 sample_vec = reflect(sample_offset_hb[i], rand_vec);
+			sample_vec /= sample_vec_divisor;
+			float2 sample_coords = (sample_vec*float2(1,aspect))/N_STEPS;
+		
+			for(int k = 1; k <= N_STEPS; k++)
+			{
+				sample_depth = readDepthHb(sample_center + sample_coords*(k-0.5*(i%2)) );
+				sample_pos = getPosition(sample_center + sample_coords*(k-0.5*(i%2)), sample_depth);
+				occlusion_vector = sample_pos - pos;
+				temp_theta = dot(norm, normalize(occlusion_vector));			
+
+				if(temp_theta > theta)
+				{
+					theta = temp_theta;
+					temp_ao = 1-sqrt(1 - theta*theta );
+					float dfactor = clamp(depth-0.8, 0.0, 1.0)*2;
+					hao += (1/ (1 + (Attenuation_Factor+dfactor) * pow(length(occlusion_vector)/haoRadiusMultiplier*depthRange,2)) )*(temp_ao-curr_ao);
+					curr_ao = temp_ao;
+				}
+			}
+			s += 1;
+		}
+
+		hao /= s;
+		if(depth>0.98) hao = lerp(hao, 0.0, (depth-0.98)*100.0);
 	}
 
-	ao /= s;
+	float ao = 1.0-max(vao*aoStrengthMultiplier, hao*aoStrengthMultiplier*4);
 	
-	// adjust for close and far away
-	if(depth<0.075) ao = lerp(ao, 0.0, (0.075-depth)*13.3);
-	//if(depth>0.1) ao = lerp(ao, 0.0, 1.0);
-
-	ao = 1.0-ao*aoStrengthMultiplier;
-	
-	//return float4(depth,depth,depth,1);
 	return float4(ao,ao,ao,1);
 }
 

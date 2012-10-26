@@ -68,10 +68,12 @@ void KeyActions::performAction(const char* name) {
 }
 
 void KeyActions::processIO() {
-	for(IntStrMap::const_iterator i = keyBindingMap.begin(); i != keyBindingMap.end(); ++i) {
-		if(GetAsyncKeyState(i->first)&1) {
-			SDLOG(0, "Action triggered: %s\n", i->second.c_str());
-			performAction(i->second.c_str());
+	if(::GetForegroundWindow() != NULL && ::GetActiveWindow() != NULL) {
+		for(IntStrMap::const_iterator i = keyBindingMap.begin(); i != keyBindingMap.end(); ++i) {
+			if(GetAsyncKeyState(i->first)&1) {
+				SDLOG(0, "Action triggered: %s\n", i->second.c_str());
+				performAction(i->second.c_str());
+			}
 		}
 	}
 }

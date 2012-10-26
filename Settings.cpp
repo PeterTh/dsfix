@@ -53,6 +53,7 @@ void Settings::init() {
 		if(getCaptureCursor()) WindowManager::get().toggleCursorCapture();
 		if(getBorderlessFullscreen()) WindowManager::get().toggleBorderlessFullscreen();
 
+		WindowManager::get().resize(NULL, NULL);
 		inited = true;
 	}
 }

@@ -30,7 +30,6 @@ bool WINAPI DllMain(HMODULE hDll, DWORD dwReason, PVOID pvReserved) {
 	TCHAR fileName[512];
 	GetModuleFileName(NULL, fileName, 512);
 
-
 	if(dwReason == DLL_PROCESS_ATTACH) {
 		DisableThreadLibraryCalls(hDll);
 		GetModuleFileName(hDll, dlldir, 512);

@@ -17,19 +17,22 @@ RSManager RSManager::instance;
 
 void RSManager::initResources() {
 	SDLOG(0, "RenderstateManager resource initialization started\n");
+	unsigned rw = Settings::get().getRenderWidth(), rh = Settings::get().getRenderHeight();
+	unsigned dofRes = Settings::get().getDOFOverrideResolution();
 	if(Settings::get().getAAQuality()) {
 		if(Settings::get().getAAType() == "SMAA") {
-			smaa = new SMAA(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), (SMAA::Preset)(Settings::get().getAAQuality()-1));
+			smaa = new SMAA(d3ddev, rw, rh, (SMAA::Preset)(Settings::get().getAAQuality()-1));
 		} else {
-			fxaa = new FXAA(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), (FXAA::Quality)(Settings::get().getAAQuality()-1));
+			fxaa = new FXAA(d3ddev, rw, rh, (FXAA::Quality)(Settings::get().getAAQuality()-1));
 		}
 	}
-	if(Settings::get().getSsaoStrength()) vssao = new VSSAO(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), Settings::get().getSsaoStrength()-1);
-	if(Settings::get().getDOFBlurAmount()) gauss = new GAUSS(d3ddev, Settings::get().getDOFOverrideResolution()*16/9, Settings::get().getDOFOverrideResolution());
-	if(Settings::get().getEnableHudMod()) hud = new HUD(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight());
-	d3ddev->CreateTexture(Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rgbaBuffer1Tex, NULL);
+	if(Settings::get().getSsaoStrength()) ssao = new SSAO(d3ddev, rw, rh, Settings::get().getSsaoStrength()-1, 
+		(Settings::get().getSsaoType() == "VSSAO") ? SSAO::VSSAO : ((Settings::get().getSsaoType() == "HBAO") ? SSAO::HBAO : SSAO::SCAO) );
+	if(Settings::get().getDOFBlurAmount()) gauss = new GAUSS(d3ddev, dofRes*16/9, dofRes);
+	if(Settings::get().getEnableHudMod()) hud = new HUD(d3ddev, rw, rh);
+	d3ddev->CreateTexture(rw, rh, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &rgbaBuffer1Tex, NULL);
 	rgbaBuffer1Tex->GetSurfaceLevel(0, &rgbaBuffer1Surf);
-	d3ddev->CreateDepthStencilSurface(Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, false, &depthStencilSurf, NULL);
+	d3ddev->CreateDepthStencilSurface(rw, rh, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, false, &depthStencilSurf, NULL);
 	d3ddev->CreateStateBlock(D3DSBT_ALL, &prevStateBlock);
 	SDLOG(0, "RenderstateManager resource initialization completed\n");
 	if(!inited) startDetour(); // on first init only
@@ -44,7 +47,7 @@ void RSManager::releaseResources() {
 	SAFERELEASE(prevStateBlock);
 	SAFEDELETE(smaa);
 	SAFEDELETE(fxaa);
-	SAFEDELETE(vssao);
+	SAFEDELETE(ssao);
 	SAFEDELETE(gauss);
 	SAFEDELETE(hud);
 	SDLOG(0, "RenderstateManager resource release completed\n");
@@ -212,7 +215,7 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 		++mainRTuses;
 	}
 
-	if(mainRTuses == 2 && mainRT && zSurf && (vssao && doVssao)) { // we are switching away from the initial 3D-rendered image, do SSAO
+	if(mainRTuses == 2 && mainRT && zSurf && (ssao && doSsao)) { // we are switching away from the initial 3D-rendered image, do SSAO
 		IDirect3DSurface9 *oldRenderTarget;
 		d3ddev->GetRenderTarget(0, &oldRenderTarget);
 		if(oldRenderTarget == mainRT) {
@@ -227,15 +230,11 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 					//if(takeScreenshot) D3DXSaveTextureToFile("0effect_z.bmp", D3DXIFF_BMP, zTex, NULL);
 					storeRenderState();
 					d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
-					//d3ddev->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-					//d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-					//d3ddev->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-					//d3ddev->SetRenderState(D3DRS_CLIPPING, FALSE);
 					d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
 					d3ddev->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
 					// perform SSAO
-					if(vssao && doVssao) {
-						vssao->go(tex, zTex, rgbaBuffer1Surf);
+					if(ssao && doSsao) {
+						ssao->go(tex, zTex, rgbaBuffer1Surf);
 						d3ddev->StretchRect(rgbaBuffer1Surf, NULL, oldRenderTarget, NULL, D3DTEXF_NONE);
 					}
 					restoreRenderState();
@@ -249,7 +248,7 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 		oldRenderTarget->Release();
 	}
 
-	if(mainRTuses == 5 && !lowFPSmode && mainRT && zSurf && doAA && (smaa || fxaa)) { // time to do SMAA
+	if(mainRTuses == 5 && !lowFPSmode && mainRT && zSurf && doAA && (smaa || fxaa)) { // time to do AA
 		IDirect3DSurface9 *oldRenderTarget;
 		d3ddev->GetRenderTarget(0, &oldRenderTarget);
 		if(oldRenderTarget == mainRT) {
@@ -261,10 +260,6 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 				if(desc.Width == Settings::get().getRenderWidth() && desc.Height == Settings::get().getRenderHeight()) {
 					storeRenderState();
 					d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
-					//d3ddev->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
-					//d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-					//d3ddev->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-					//d3ddev->SetRenderState(D3DRS_CLIPPING, FALSE);
 					d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
 					d3ddev->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
 					// perform AA processing
@@ -407,10 +402,11 @@ HRESULT RSManager::redirectStretchRect(IDirect3DSurface9* pSourceSurface, CONST 
 	//	if(capturing) dumpSurface("redirectStretchRect", it->second);
 	//	return d3ddev->StretchRect(it->second, pSourceRect, pDestSurface, pDestRect, Filter);
 	//}
-	return d3ddev->StretchRect(pSourceSurface, pSourceRect, pDestSurface, pDestRect, Filter);
+	return d3ddev->StretchRect(pSourceSurface, pSourceRect, pDestSurface, pDestRect, D3DTEXF_LINEAR);
 }
 
 HRESULT RSManager::redirectSetTexture(DWORD Stage, IDirect3DBaseTexture9 * pTexture) {
+	if(pTexture == NULL) return d3ddev->SetTexture(Stage, pTexture);
 	//TexIntMap::iterator it = renderTexIndices.find((IDirect3DTexture9*)pTexture);
 	//if(it != renderTexIndices.end() && it->second == 2) {
 	//	IDirect3DSurface9* surf0;
@@ -440,6 +436,20 @@ HRESULT RSManager::redirectSetTexture(DWORD Stage, IDirect3DBaseTexture9 * pText
 		SDLOG(1, "HUD started!\n");
 		hudStarted = true;
 	}
+	//if(mainRT && mainRTuses > 3) {
+	//	IDirect3DTexture9* tex;
+	//	pTexture->QueryInterface(IID_IDirect3DTexture9, (void**)&tex);
+	//	if(tex) {
+	//		IDirect3DSurface9* surf;
+	//		if(tex->GetSurfaceLevel(0, &surf) == D3D_OK) {
+	//			bool main = surf == mainRT;
+	//			surf->Release();
+	//			if(main) {
+	//				d3ddev->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+	//			}
+	//		}
+	//	}
+	//}
 	if(pTexture && rddp == 0 && Stage == 0) { ++rddp; }
 	else if(pTexture && rddp == 1 && Stage == 1) { ++rddp; }
 	else if(pTexture && rddp == 2 && Stage == 2) { ++rddp; }
@@ -528,8 +538,18 @@ void RSManager::enableTakeScreenshot() {
 }
 
 void RSManager::reloadVssao() {
-	SAFEDELETE(vssao); 
-	vssao = new VSSAO(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), Settings::get().getSsaoStrength()-1);
+	SAFEDELETE(ssao); 
+	ssao = new SSAO(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), Settings::get().getSsaoStrength()-1, SSAO::VSSAO);
+	SDLOG(0, "Reloaded SSAO\n");
+}
+void RSManager::reloadHbao() {
+	SAFEDELETE(ssao); 
+	ssao = new SSAO(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), Settings::get().getSsaoStrength()-1, SSAO::HBAO);
+	SDLOG(0, "Reloaded SSAO\n");
+}
+void RSManager::reloadScao() {
+	SAFEDELETE(ssao); 
+	ssao = new SSAO(d3ddev, Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), Settings::get().getSsaoStrength()-1, SSAO::SCAO);
 	SDLOG(0, "Reloaded SSAO\n");
 }
 

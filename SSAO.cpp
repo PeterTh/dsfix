@@ -1,4 +1,4 @@
-#include "VSSAO.h"
+#include "SSAO.h"
 
 #include <string>
 #include <sstream>
@@ -8,18 +8,25 @@ using namespace std;
 #include "Settings.h"
 #include "RenderstateManager.h"
 
-VSSAO::VSSAO(IDirect3DDevice9 *device, int width, int height, unsigned strength) 
+SSAO::SSAO(IDirect3DDevice9 *device, int width, int height, unsigned strength, Type type) 
 	: Effect(device), width(width), height(height) {
 	
 	// Setup the defines for compiling the effect
     vector<D3DXMACRO> defines;
-    stringstream s;
 
     // Setup pixel size macro
-    s << "float2(1.0 / " << width << ", 1.0 / " << height << ")";
-    string pixelSizeText = s.str();
-    D3DXMACRO pixelSizeMacro = { "PIXEL_SIZE", pixelSizeText.c_str() };
-    defines.push_back(pixelSizeMacro);
+	stringstream sp;
+	sp << "float2(1.0 / " << width << ", 1.0 / " << height << ")";
+	string pixelSizeText = sp.str();
+	D3DXMACRO pixelSizeMacro = { "PIXEL_SIZE", pixelSizeText.c_str() };
+	defines.push_back(pixelSizeMacro);
+	
+    // Setup scale macro
+	stringstream ss;
+	ss << Settings::get().getSsaoScale() << ".0";
+	string scaleText = ss.str();
+	D3DXMACRO scaleMacro = { "SCALE", scaleText.c_str() };
+	defines.push_back(scaleMacro);
 	
 	D3DXMACRO strengthMacros[] = {
 		{ "SSAO_STRENGTH_LOW", "1" },
@@ -34,9 +41,15 @@ VSSAO::VSSAO(IDirect3DDevice9 *device, int width, int height, unsigned strength)
 	DWORD flags = D3DXFX_NOT_CLONEABLE | D3DXSHADER_OPTIMIZATION_LEVEL3;
 
 	// Load effect from file
-	SDLOG(0, "VSSAO load\n");	
+	const char* shader;
+	switch(type) {
+		case VSSAO: shader = "dsfix\\VSSAO.fx"; break;
+		case HBAO: shader = "dsfix\\HBAO.fx"; break;
+		case SCAO: shader = "dsfix\\SCAO.fx"; break;
+	}
+	SDLOG(0, "%s load, scale %s, strength %s\n", shader, scaleText.c_str(), strengthMacros[strength].Name);	
 	ID3DXBuffer* errors;
-	HRESULT hr = D3DXCreateEffectFromFile(device, GetDirectoryFile("dsfix\\VSSAO.fx"), &defines.front(), NULL, flags, NULL, &effect, &errors);
+	HRESULT hr = D3DXCreateEffectFromFile(device, shader, &defines.front(), NULL, flags, NULL, &effect, &errors);
 	if(hr != D3D_OK) SDLOG(0, "ERRORS:\n %s\n", errors->GetBufferPointer());
 	
 	// Create buffers
@@ -51,7 +64,7 @@ VSSAO::VSSAO(IDirect3DDevice9 *device, int width, int height, unsigned strength)
     prevPassTexHandle = effect->GetParameterByName(NULL, "prevPassTex2D");
 }
 
-VSSAO::~VSSAO() {
+SSAO::~SSAO() {
 	SAFERELEASE(effect);
 	SAFERELEASE(buffer1Surf);
 	SAFERELEASE(buffer1Tex);
@@ -59,7 +72,7 @@ VSSAO::~VSSAO() {
 	SAFERELEASE(buffer2Tex);
 }
 
-void VSSAO::go(IDirect3DTexture9 *frame, IDirect3DTexture9 *depth, IDirect3DSurface9 *dst) {
+void SSAO::go(IDirect3DTexture9 *frame, IDirect3DTexture9 *depth, IDirect3DSurface9 *dst) {
 	device->SetVertexDeclaration(vertexDeclaration);
 	
     mainSsaoPass(depth, buffer1Surf);
@@ -72,7 +85,7 @@ void VSSAO::go(IDirect3DTexture9 *frame, IDirect3DTexture9 *depth, IDirect3DSurf
 	combinePass(frame, buffer1Tex, dst);
 }
 
-void VSSAO::mainSsaoPass(IDirect3DTexture9* depth, IDirect3DSurface9* dst) {
+void SSAO::mainSsaoPass(IDirect3DTexture9* depth, IDirect3DSurface9* dst) {
 	device->SetRenderTarget(0, dst);
     device->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(255, 0, 0, 0), 1.0f, 0);
 
@@ -88,7 +101,7 @@ void VSSAO::mainSsaoPass(IDirect3DTexture9* depth, IDirect3DSurface9* dst) {
 	effect->End();
 }
 
-void VSSAO::hBlurPass(IDirect3DTexture9 *depth, IDirect3DTexture9* src, IDirect3DSurface9* dst) {
+void SSAO::hBlurPass(IDirect3DTexture9 *depth, IDirect3DTexture9* src, IDirect3DSurface9* dst) {
 	device->SetRenderTarget(0, dst);
 
     // Setup variables.
@@ -104,7 +117,7 @@ void VSSAO::hBlurPass(IDirect3DTexture9 *depth, IDirect3DTexture9* src, IDirect3
 	effect->End();
 }
 
-void VSSAO::vBlurPass(IDirect3DTexture9 *depth, IDirect3DTexture9* src, IDirect3DSurface9* dst) {
+void SSAO::vBlurPass(IDirect3DTexture9 *depth, IDirect3DTexture9* src, IDirect3DSurface9* dst) {
 	device->SetRenderTarget(0, dst);
 
     // Setup variables.
@@ -120,7 +133,7 @@ void VSSAO::vBlurPass(IDirect3DTexture9 *depth, IDirect3DTexture9* src, IDirect3
 	effect->End();
 }
 
-void VSSAO::combinePass(IDirect3DTexture9* frame, IDirect3DTexture9* ao, IDirect3DSurface9* dst) {
+void SSAO::combinePass(IDirect3DTexture9* frame, IDirect3DTexture9* ao, IDirect3DSurface9* dst) {
 	device->SetRenderTarget(0, dst);
     //device->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(255, 255, 0, 255), 1.0f, 0);
 

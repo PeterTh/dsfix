@@ -1,13 +1,16 @@
-// Volumetric SSAO
-// Implemented by Tomerk for OBGE
+// Cosine Weighted HBAO
+// Originally based off of NVIDIA's HBAO, implemented and heavily modified by Tomerk
 // Adapted and tweaked for Dark Souls by Durante
 
 /***User-controlled variables***/
-#define N_SAMPLES 9 //number of samples, currently do not change.
+#define N_DIRECTIONS 8 //number of directions to sample in, currently do not change.
+#define N_STEPS 6 //number of steps to raymarch, you may change The higher this is the higher the quality and the lower the performance.
 
-extern float aoRadiusMultiplier = 1.0; //Linearly multiplies the radius of the AO Sampling
-extern float ThicknessModel = 25.0; //units in space the AO assumes objects' thicknesses are
+extern float aoRadiusMultiplier = 5.0; //Linearly multiplies the radius of the AO Sampling
+extern float Attenuation_Factor = 0.1; //Affects units in space the AO will extend to
+
 extern float FOV = 85; //Field of View in Degrees
+
 extern float luminosity_threshold = 0.3;
 
 #ifndef SCALE
@@ -24,21 +27,22 @@ extern float luminosity_threshold = 0.3;
 
 #ifdef SSAO_STRENGTH_LOW
 extern float aoClamp = 0.75;
-extern float aoStrengthMultiplier = 0.6;
+extern float aoStrengthMultiplier = 2.0;
 #endif
 
 #ifdef SSAO_STRENGTH_MEDIUM
-extern float aoClamp = 0.5;
-extern float aoStrengthMultiplier = 0.9;
+extern float aoClamp = 0.4;
+extern float aoStrengthMultiplier = 4.5;
 #endif
 
 #ifdef SSAO_STRENGTH_HIGH
-extern float aoClamp = 0.2;
-extern float aoStrengthMultiplier = 1.3;
+extern float aoClamp = 0.15;
+extern float aoStrengthMultiplier = 6.0;
 #endif
 
 
 #define LUMINANCE_CONSIDERATION //comment this line to not take pixel brightness into account
+//#define RAW_SSAO //uncomment this line to show the raw ssao
 
 /***End Of User-controlled Variables***/
 static float2 rcpres = PIXEL_SIZE;
@@ -93,58 +97,36 @@ struct VSIN
 
 VSOUT FrameVS(VSIN IN)
 {
-	VSOUT OUT;
+	VSOUT OUT = (VSOUT)0.0f;	// initialize to zero, avoid complaints.
 	OUT.vertPos = IN.vertPos;
 	OUT.UVCoord = IN.UVCoord;
 	return OUT;
 }
 
-
-static float2 sample_offset[N_SAMPLES] =
+static float2 sample_offset[N_DIRECTIONS] =
 {
-//#if N_SAMPLES >= 9
-	float2(-0.1376476f, 0.2842022f),
-	float2(-0.626618f, 0.4594115f),
-	float2(-0.8903138f, -0.05865424f),
-	float2(0.2871419f, 0.8511679f),
-	float2(-0.1525251f, -0.3870117f),
-	float2(0.6978705f, -0.2176773f),
-	float2(0.7343006f, 0.3774331f),
-	float2(0.1408805f, -0.88915f),
-	float2(-0.6642616f, -0.543601f)
-//#endif
-};
-
-static float sample_radius[N_SAMPLES] =
-{
-//#if N_SAMPLES >= 9
-	0.948832,
-	0.629516,
-	0.451554,
-	0.439389,
-	0.909372,
-	0.682344,
-	0.5642,
-	0.4353,
-	0.5130
+//#if N_DIRECTIONS >= 9
+	float2(1, 0),
+	float2(0.7071f, 0.7071f),
+	float2(0, 1),
+	float2(-0.7071f, 0.7071f),
+	float2(-1, 0),
+	float2(-0.7071f, -0.7071f),
+	float2(0, -1),
+	float2(0.7071f, -0.7071f)
 //#endif
 };
 
 float2 rand(in float2 uv) {
 	float noiseX = (frac(sin(dot(uv, float2(12.9898,78.233)*2.0)) * 43758.5453));
 	float noiseY = sqrt(1-noiseX*noiseX);
-	return float2(noiseX, noiseY);
+	return float2(noiseX,noiseY);
 }
 
 float readDepth(in float2 coord : TEXCOORD0) {
-	float4 col = tex2D(depthSampler, coord);
-	//float posZ = clamp((((1.0-col.z)/(256.0) + (1.0-col.y) + (1.0-col.x)*256))/5.0, 0.0, 1.0);
-	//float posZ = ((1.0-col.y) + 256.0*(1.0-col.x))/(5.0);
-	//return ((2.0f * nearZ) / (nearZ + farZ - posZ * (farZ - nearZ)))*20.0;
-	
+	float4 col = tex2D(depthSampler, coord);	
 	float posZ = ((1.0-col.z) + (1.0-col.y)*256.0 + (1.0-col.x)*(257.0*256.0));
-	//return ((2.0f * nearZ) / (nearZ + farZ - posZ * (farZ - nearZ)));
-	return (posZ-nearZ)/farZ;
+	return 1 - (posZ-nearZ)/farZ;
 }
 
 float3 getPosition(in float2 uv, in float eye_z) {
@@ -163,41 +145,58 @@ float4 ssao_Main( VSOUT IN ) : COLOR0 {
 	float3 dx = ddx(pos);
 	float3 dy = ddy(pos);
 	float3 norm = normalize(cross(dx,dy));
-	norm.y *= -1;
 
 	float sample_depth;
+	float3 sample_pos;
 
-	float ao=0;
-	float s=0.0;
-
+	float ao = 0.0;
+	float s = 0.0;
+	
 	float2 rand_vec = rand(IN.UVCoord);
 	float2 sample_vec_divisor = g_InvFocalLen*depth*depthRange/(aoRadiusMultiplier*5000*rcpres);
-	float2 sample_center = IN.UVCoord + norm.xy/sample_vec_divisor*float2(1,aspect);
-	float sample_center_depth = depth*depthRange + norm.z*aoRadiusMultiplier*10;
+	float2 sample_center = IN.UVCoord;
 	
-	for(int i = 0; i < N_SAMPLES; i++) {
+	for(int i = 0; i < N_DIRECTIONS; i++)
+	{
+		float theta = 0;
+		float temp_theta = 0;
+
+		float temp_ao = 0;
+		float curr_ao = 0;
+		
+		float3 occlusion_vector = float3(0,0,0);
+
 		float2 sample_vec = reflect(sample_offset[i], rand_vec);
 		sample_vec /= sample_vec_divisor;
-		float2 sample_coords = sample_center + sample_vec*float2(1,aspect);
+		float2 sample_coords = (sample_vec*float2(1,aspect))/N_STEPS;
 		
-		float curr_sample_radius = sample_radius[i]*aoRadiusMultiplier*10;
-		float curr_sample_depth = depthRange*readDepth(sample_coords);
-		
-		ao += clamp(0,curr_sample_radius+sample_center_depth-curr_sample_depth,2*curr_sample_radius);
-		ao -= clamp(0,curr_sample_radius+sample_center_depth-curr_sample_depth-ThicknessModel,2*curr_sample_radius);
-		s += 2*curr_sample_radius;
+		for(int k = 1; k <= N_STEPS; k++)
+		{
+			sample_depth = readDepth(sample_center + sample_coords*(k-0.5*(i%2)) );
+			sample_pos = getPosition(sample_center + sample_coords*(k-0.5*(i%2)), sample_depth);
+			occlusion_vector = sample_pos - pos;
+			temp_theta = dot(norm, normalize(occlusion_vector));			
+
+			if(temp_theta > theta)
+			{
+				theta = temp_theta;
+				temp_ao = 1-sqrt(1 - theta*theta );
+				float dfactor = clamp(depth-0.8, 0.0, 1.0)*2;
+				ao += (1/ (1 + (Attenuation_Factor+dfactor) * pow(length(occlusion_vector)/aoRadiusMultiplier*depthRange,2)) )*(temp_ao-curr_ao);
+				curr_ao = temp_ao;
+			}
+		}
+		s += 1;
 	}
 
 	ao /= s;
 	
 	// adjust for close and far away
-	if(depth<0.075) ao = lerp(ao, 0.0, (0.075-depth)*13.3);
-	//if(depth>0.1) ao = lerp(ao, 0.0, 1.0);
+	if(depth>0.98) ao = lerp(ao, 0.0, (depth-0.98)*100.0);
 
 	ao = 1.0-ao*aoStrengthMultiplier;
-	
-	//return float4(depth,depth,depth,1);
-	return float4(ao,ao,ao,1);
+
+	return float4(clamp(ao,aoClamp,1),1,1,1);
 }
 
 float4 HBlur( VSOUT IN ) : COLOR0 {
@@ -237,7 +236,7 @@ float4 Combine( VSOUT IN ) : COLOR0 {
 	luminance = clamp(max(black,luminance-luminosity_threshold)+max(black,luminance-luminosity_threshold)+max(black,luminance-luminosity_threshold),0.0,1.0);
 	ao = lerp(ao,white,luminance);
 	#endif
-
+	
 	color *= 1.05;
 	color *= ao;
 

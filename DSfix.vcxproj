@@ -305,7 +305,7 @@
     <ClCompile Include="SaveManager.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="SMAA.cpp" />
-    <ClCompile Include="VSSAO.cpp" />
+    <ClCompile Include="SSAO.cpp" />
     <ClCompile Include="WindowManager.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -331,7 +331,7 @@
     <ClInclude Include="d3d9int.h" />
     <ClInclude Include="SaveManager.h" />
     <ClInclude Include="Settings.h" />
-    <ClInclude Include="VSSAO.h" />
+    <ClInclude Include="SSAO.h" />
     <ClInclude Include="WindowManager.h" />
   </ItemGroup>
   <ItemGroup>

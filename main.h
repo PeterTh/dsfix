@@ -18,7 +18,7 @@
 
 #pragma once
 
-#define VERSION "1.8"
+#define VERSION "1.9"
 
 #define RELEASE_VER
 

@@ -32,13 +32,39 @@ HRESULT APIENTRY hkIDirect3DDevice9::Present(CONST RECT *pSourceRect, CONST RECT
 }
 
 HRESULT APIENTRY hkIDirect3DDevice9::SetVertexShaderConstantF(UINT StartRegister, CONST float* pConstantData, UINT Vector4fCount) {
-	SDLOG(7, "SetVertexShaderConstantF: start: %u, count: %u\n", StartRegister, Vector4fCount);
-	if(Settings::get().getLogLevel() > 13) {
-		for(size_t i=0; i<Vector4fCount; ++i) {
-			SDLOG(13, " - %6.2f %6.2f %6.2f %6.2f\n", pConstantData[i*4+0], pConstantData[i*4+1], pConstantData[i*4+2], pConstantData[i*4+3]);
-		}
-	}
-	return m_pD3Ddev->SetVertexShaderConstantF(StartRegister,pConstantData,Vector4fCount);	
+	//static float replacement[128*8];
+	//SDLOG(0, "SetVertexShaderConstantF: start: %u, count: %u\n", StartRegister, Vector4fCount);
+	//if(Settings::get().getLogLevel() > 13 || Vector4fCount == 8 || Vector4fCount == 4) {
+	//	for(size_t i=0; i<Vector4fCount; ++i) {
+	//		SDLOG(0, " - %16.10f %16.10f %16.10f %16.10f\n", pConstantData[i*4+0], pConstantData[i*4+1], pConstantData[i*4+2], pConstantData[i*4+3]);
+	//	}
+	//}
+	//if(StartRegister == 8 && Vector4fCount == 8) {
+	//	SDLOG(0, "!!8ball\n");
+	//	memcpy(replacement, pConstantData, sizeof(float)*4*Vector4fCount);
+	//	D3DXMATRIX projMatrix, viewMatrix, cameraMatrix, viewInv;
+	//	memcpy(&projMatrix, &(replacement[0]), sizeof(float)*16);
+	//	memcpy(&viewMatrix, &(replacement[16]), sizeof(float)*16);
+	//	if(viewMatrix._14 != 0.0 && viewMatrix._24 != 0.0 && viewMatrix._34 != 0.0 && viewMatrix._44 != 0.0) {
+	//		SDLOG(0, "!!8ball zero\n");
+	//		D3DXMatrixInverse(&viewInv, NULL, &viewMatrix);
+	//		projMatrix *= viewInv;
+	//		viewMatrix._11 *= 2.0;
+	//		viewMatrix._22 *= 2.0;
+	//		projMatrix *= viewMatrix;
+	//		memcpy(&(replacement[0]), &projMatrix, sizeof(float)*16);
+	//		memcpy(&(replacement[16]), &viewMatrix, sizeof(float)*16);
+	//		memset(replacement, 0, sizeof(float)*32);
+	//		for(size_t i=0; i<Vector4fCount; ++i) {
+	//			SDLOG(0, " + %16.10f %16.10f %16.10f %16.10f\n", replacement[i*4+0], replacement[i*4+1], replacement[i*4+2], replacement[i*4+3]);
+	//		}
+	//		return m_pD3Ddev->SetVertexShaderConstantF(StartRegister, replacement, Vector4fCount);
+	//	}
+	//} /*else if(StartRegister == 8 && Vector4fCount == 4) {
+	//	SDLOG(0, "!!4ball\n");
+	//	return m_pD3Ddev->SetVertexShaderConstantF(StartRegister, replacement, Vector4fCount);
+	//}*/ 
+	return m_pD3Ddev->SetVertexShaderConstantF(StartRegister, pConstantData, Vector4fCount);
 }
 
 HRESULT APIENTRY hkIDirect3DDevice9::SetRenderTarget(DWORD RenderTargetIndex, IDirect3DSurface9* pRenderTarget) {
@@ -217,8 +243,8 @@ HRESULT APIENTRY hkIDirect3DDevice9::CreateTexture(UINT Width, UINT Height, UINT
 	//	return m_pD3Ddev->CreateTexture(Width*2, Height*2, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
 	//}
 	if(Width == 1280 && Height == 720) {
-		SDLOG(1, " - OVERRIDE to %4u/%4u!\n", Settings::get().getRenderWidth(), Settings::get().getRenderHeight());
-		return m_pD3Ddev->CreateTexture(Settings::get().getRenderWidth(), Settings::get().getRenderHeight(), Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
+		SDLOG(1, " - OVERRIDE to %4u/%4u!\n", Settings::get().getPresentWidth(), Settings::get().getPresentHeight());
+		return m_pD3Ddev->CreateTexture(Settings::get().getPresentWidth(), Settings::get().getPresentHeight(), Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
 	}
 	HRESULT res = m_pD3Ddev->CreateTexture(Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
 	//RSManager::get().registerTexture(*ppTexture);

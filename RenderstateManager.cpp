@@ -311,7 +311,8 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 			D3DSURFACE_DESC desc;
 			oldRenderTarget->GetDesc(&desc);
 			if(desc.Width == Settings::get().getRenderWidth() && desc.Height == Settings::get().getRenderHeight()) {
-				if(takeScreenshot) {
+				// screenshots
+				if(takeScreenshot && rddp >= 6) {
 					takeScreenshot = false;
 					SDLOG(0, "Capturing screenshot\n");
 					char timebuf[128], buffer[512];
@@ -323,46 +324,6 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 					sprintf(buffer, "%s\\%s", Settings::get().getScreenshotDir().c_str(), timebuf);
 					SDLOG(0, " - to %s\n", buffer);
 					D3DXSaveSurfaceToFile(buffer, D3DXIFF_BMP, oldRenderTarget, NULL, NULL);
-				
-					// dump identified zsurf
-					//strftime(timebuf, 128, "zsurf_%Y-%m-%d_%H-%M-%S.tga", timeinfo);
-					//D3DXSaveSurfaceToFile(timebuf, D3DXIFF_TGA, zSurf, NULL, NULL);
-
-					// calculate metrics on z surf
-					//D3DSURFACE_DESC desc;
-					//zSurf->GetDesc(&desc);
-					//SDLOG(0, "ZSURF format: %s", D3DUtil_D3DFormatToString(desc.Format));
-					//IDirect3DSurface9* offSurf;
-					//d3ddev->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offSurf, NULL);
-					//d3ddev->GetRenderTargetData(zSurf, offSurf);
-					//D3DLOCKED_RECT lockedRect;
-					//offSurf->LockRect(&lockedRect, NULL, D3DLOCK_READONLY);
-					//UINT16 mindepth = UINT16_MAX, maxdepth = 0;
-					//for(size_t y=0; y < desc.Height; ++y) {
-					//	UCHAR *row = (UCHAR*)(lockedRect.pBits) + lockedRect.Pitch*y;
-					//	for(size_t x=0; x < desc.Width; ++x) {
-					//		// ARGB, R has high bits, G has low
-					//		UINT16 depth = *(UINT16*)(row + x*4+1);
-					//		if(depth<mindepth) mindepth = depth;
-					//		if(depth>maxdepth) maxdepth = depth;
-					//		SDLOG(0, "%6u, ", depth);
-					//	}
-					//	SDLOG(0,"\n");
-					//}
-					//SDLOG(0, "ZSURF depth: %u - %u", mindepth, maxdepth);
-					//offSurf->UnlockRect();
-					//offSurf->Release();
-
-					// dump textures used in final rendering step
-					//strftime(timebuf, 128, "%Y-%m-%d_%H-%M-%S", timeinfo);
-					//for(size_t i=0; i<4; ++i) {
-					//	char namebuf[128];
-					//	IDirect3DBaseTexture9* tex;
-					//	d3ddev->GetTexture(i, &tex);
-					//	sprintf(namebuf, "tex%u_%s.tga", i, timebuf);
-					//	D3DXSaveTextureToFile(namebuf, D3DXIFF_TGA, tex, NULL);
-					//	tex->Release();
-					//}
 				}
 				// HUD stuff
 				if(hud && doHud && rddp == 9) {

@@ -30,6 +30,9 @@ void Settings::load() {
 	if(getBackupInterval() < 600) {
 		BackupInterval = 600;
 	}
+	
+	if(getPresentWidth() == 0) PresentWidth = getRenderWidth();
+	if(getPresentHeight() == 0) PresentHeight = getRenderHeight();
 
 	if(getOverrideLanguage().length() >= 2 && getOverrideLanguage().find("none") != 0) {
 		performLanguageOverride();

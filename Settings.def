@@ -63,8 +63,8 @@ SETTING(float, HudBottomRightOpacity, "hudBottomRightOpacity", 1.0f)
 SETTING(bool, BorderlessFullscreen, "borderlessFullscreen", false);
 SETTING(bool, ForceFullscreen, "forceFullscreen", false);
 SETTING(bool, ForceWindowed, "forceWindowed", false);
-SETTING(unsigned, PresentWidth, "presentWidth", 1280);
-SETTING(unsigned, PresentHeight, "presentHeight", 720);
+SETTING(unsigned, PresentWidth, "presentWidth", 0);
+SETTING(unsigned, PresentHeight, "presentHeight", 0);
 SETTING(bool, EnableVsync, "enableVsync", true);
 SETTING(unsigned, FullscreenHz, "fullscreenHz", 60);
 SETTING(int, D3DAdapterOverride, "d3dAdapterOverride", -1);

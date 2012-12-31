@@ -1,21 +1,35 @@
-25-10-1012 -- version 1.9 beta
+22-12-2012 -- version 2.0.1
+=========================
+- Fixed HUD modification bug introduced in 2.0
+
+
+21-12-2012 -- version 2.0
+=========================
+- Updated the framerate unlock feature to work with the patched version of the game (Nwks)
+- Updated post-processing AA to work with the patched version of the game
+- Added "PresentWidth" and "PresentHeight" for full control over (windowed) downsampling 
+- Fixed an issue where hudless screenshots would sometimes not correctly capture some effects
+
+
+25-10-2012 -- version 1.9 beta
 ==============================
 - Added 2 new ambient occlusion algorithms: HBAO and SCAO
 - Added scale option for ambient occlusion on lower-end systems
 - Disabled hotkeys when Dark Souls is not active
 - Reinstated the texture filtering option with slightly better implementation
+- Small bug fixes in frame rate limits calculation
 - Rework WindowManager::resize to center the window along with resizing, and call on startup (wT)
 - Fix prevExStyle in WindowManager::toggleBorderlessFullscreen (wT)
 
 
-21-10-1012 -- version 1.8 beta
+21-10-2012 -- version 1.8 beta
 ==============================
 - Added FXAA option for AA
 - Added 30 FPS limit toggle
 - Greatly improved SSAO depth usage, removed thickness model hack
 
 
-29-09-1012 -- version 1.7 beta
+29-09-2012 -- version 1.7 beta
 ==============================
 - Re-implemented the FPS limiter. It's quite exact now and also performed at a better point in time 
   (before presenting the frame)
@@ -23,14 +37,14 @@
 - Added FPS thresholding for SMAA
 
 
-29-09-1012 -- version 1.6.1 beta
+29-09-2012 -- version 1.6.1 beta
 ================================
 - Fixed sporadic graphics issues introduced in 1.6
 - Fixed modified HUD issues with very long spell names
 - Fixed modified HUD issues with "POISONED"/"BLOOD LOSS" text
 
 
-29-09-1012 -- version 1.6 beta
+29-09-2012 -- version 1.6 beta
 ==============================
 - Unlocked framerate. Thanks to the hard work of Clément Barnier, the framerate can now be unlocked entirely.
   (look into the .ini for details)

@@ -56,6 +56,7 @@ First, make sure that the .ini files are present in the correct location.
 Additionally, the "dsfix" folder should be in that same location.
 Turn off tools such as MSI Afterburner or other overlays that manipulate D3D.
 Then try restoring the default settings in the .ini file
+If you are using the framerate unlock feature,  disable Windows "Data Execution Prevention".
 If none of these help then check if the problem still occurs when you remove/rename DINPUT8.dll
 Finally, try rebooting
 If the issue still persists, then report the problem, otherwise it has nothing to do with DSfix.

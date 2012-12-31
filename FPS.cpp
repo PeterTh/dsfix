@@ -22,13 +22,21 @@ static DWORD originalBase = NULL;
 static DWORD imageBase = NULL;
 
 // Hook Globals
-static DWORD HighGraphics;
-static DWORD TaskFuncPtr;
+float lastRenderTime;
 static LARGE_INTEGER timerFreq;
 static LARGE_INTEGER counterAtStart;
 
+// Hook Addresses
+//------------------------------------
+// Time-step value address
+#define ADDR_TS	0x012498E0  // 1.0.0 was 0x012497F0, 1.0.1 is 0x012498E0
+// Presentation interval address
+#define ADDR_PRESINT 0x0102788E // 1.0.0 was 0x010275AE, 1.0.1 is 0x0102788E
+// getDrawThreadMsgCommand address in HGCommandDispatcher loop
+#define ADDR_GETCMD	0x00BD60ED // 1.0.0 was 0x00BD601D, 1.0.1 is 0x00BD60ED
+
 //----------------------------------------------------------------------------------------
-//Functions
+// Support Functions
 //----------------------------------------------------------------------------------------
 
 // Misc
@@ -63,7 +71,7 @@ void updateAnimationStepTime(float stepTime, float minFPS, float maxFPS) {
 	
 	float cappedStep = 1/(float)FPS;
 	DWORD data = *(DWORD*)&cappedStep;
-	writeToAddress(&data, convertAddress(0x012497F0), sizeof(data));
+	writeToAddress(&data, convertAddress(ADDR_TS), sizeof(data));
 }
 
 // Timer
@@ -75,19 +83,21 @@ float getElapsedTime(void) {
 
 // Detour
 //------------------------------------
-//Make sure to adjust length according to instructions below detoured address!
-//Partially overwritten instructions will mess-up disassembly and capacity to debug
-void *DetourApply(BYTE *orig, BYTE *hook, int len, int type) {
+// Make sure to adjust length according to instructions below detoured address!
+// Partially overwritten instructions will mess-up disassembly and capacity to debug
+void *DetourApply(BYTE *orig, BYTE *hook, int len, BYTE type)
+{
 	BYTE OP, SZ;
 
-	if (type == 0) {
+	if (type == JMPOP) {
 		OP = JMPOP;
 		SZ = JMP32_SZ;
 	}
-	else if(type == 1) {
+	else if (type == CALLOP) {
 		OP = CALLOP;
 		SZ = CALL32_SZ;
 	}
+	else return 0;
 
 	DWORD dwProt = 0;
 	BYTE *jmp = (BYTE*)malloc(len+SZ);
@@ -107,7 +117,6 @@ void *DetourApply(BYTE *orig, BYTE *hook, int len, int type) {
 	return (jmp-len);
 }
 
-
 void DetourRemove(BYTE *src, BYTE *jmp, int len) {
 	DWORD dwProt = 0;
 	VirtualProtect(src, len, PAGE_READWRITE, &dwProt);
@@ -116,175 +125,39 @@ void DetourRemove(BYTE *src, BYTE *jmp, int len) {
 }
 
 //----------------------------------------------------------------------------------------
-//Game hooks
+// Hook functions
 //----------------------------------------------------------------------------------------
 
-// Render Loop
-//----------------------------------------------------------------------------------------
-void renderLoop(void) {
-	bool run = true;
-	DWORD threadID = GetCurrentThreadId();
+void _stdcall updateFramerate(unsigned int cmd) {	
+	// If rendering was performed, update animation step-time
+	if((cmd == 2) || (cmd == 5)) {
+		// FPS regulation based on previous render
+		float maxFPS = (float)Settings::get().getCurrentFPSLimit();
+		float minFPS = 10.0f;
+		float currentTime = getElapsedTime();
+		float deltaTime = currentTime - lastRenderTime;
+		lastRenderTime = currentTime;
 
-	int taskFunc;
-	DWORD task;
-
-	//Pointers conversion
-	DWORD pGetTaskF = convertAddress(0x00577330);
-	DWORD pCleanTaskF = convertAddress(0x00577450);
-
-	QueryPerformanceFrequency(&timerFreq);
-	QueryPerformanceCounter(&counterAtStart);
-	float lastTime = 0.0f;
-
-	// Render loop
-	do {
-		// Get Job & state
-		_asm { 
-			PUSH 1
-			MOV ECX, HighGraphics
-			CALL pGetTaskF				//Get task pointer
-			MOV task, EAX				//Store task pointer (EAX)
-			MOV ECX, [EAX+0x0C]			//Get task function
-			MOV taskFunc, ECX			//Store function
-		}
-		if (task == (HighGraphics+0x08))	//No task
-			break;		
-
-		switch (taskFunc) {
-			// Exit loop
-		case 0:
-			_asm {
-				MOV EDI, TaskFuncPtr
-				MOV EAX, [EDI]
-				MOV EDX, [EAX+0x0C]
-				MOV ECX, EDI
-				CALL EDX
-			}
-			run = false;
-			break;
-			// Start Watch-dog Thread
-		case 1:
-			_asm {
-				MOV ESI, task
-				MOV EDI, TaskFuncPtr
-				MOV ECX, [ESI+0x2C]
-				MOV EDX, [ESI+0x28]
-				MOV EAX, [EDI]
-				PUSH ECX
-				MOV ECX, [ESI+0x24]
-				PUSH EDX
-				MOV EDX, [EAX+0x08]
-				PUSH ECX
-				MOV ECX, EDI
-				CALL EDX
-			}
-			break;
-			// Update and/or Render
-		case 2: 
-			_asm {
-				MOV ESI, task
-				MOV EDI, TaskFuncPtr
-				MOV ECX, [ESI+0x24]
-				MOV EAX, [EDI]
-				MOV EDX, [EAX+0x10]
-				PUSH ECX
-				MOV ECX, EDI
-				CALL EDX
-			}
-			break;
-			// Do nothing (was debug log)
-		case 3:
-			_asm {
-				MOV EDI, TaskFuncPtr
-				MOV EAX, [EDI]
-				MOV EDX, [EAX+0x14]
-				MOV ECX, TaskFuncPtr
-				CALL EDX
-			}
-			break;
-			// Do nothing (was debug log)		
-		case 4:
-			_asm {
-				MOV EDI, TaskFuncPtr
-				MOV EAX, [EDI]
-				MOV EDX, [EAX+0x18]
-				MOV ECX, TaskFuncPtr
-				CALL EDX
-			}
-			break;
-			// Force Render (caused by watchdog timeout)
-		case 5:
-			_asm {
-				MOV EDI, TaskFuncPtr
-				MOV EAX, [EDI]
-				MOV EDX, [EAX+0x1C]
-				MOV ECX, TaskFuncPtr
-				CALL EDX
-			}
-			break;
-		default:
-			break;
-		}
-
-		// If rendering was performed, update animation step-time
-		if((taskFunc == 2) || (taskFunc == 5)) {
-			// FPS regulation
-			float maxFPS = (float)Settings::get().getCurrentFPSLimit();
-			float minFPS = 10.0f;
-			float currentTime = getElapsedTime();
-			float deltaTime = currentTime - lastTime;
-
-			// Update step-time
-			updateAnimationStepTime((float)deltaTime, minFPS, maxFPS);
-
-			lastTime = currentTime;
-		}
-
-		// Task cleanup
-		_asm {
-			MOV ESI, task
-			PUSH ESI
-			MOV ECX, HighGraphics
-			CALL pCleanTaskF
-		}
-
-	} while (run);
+		// Update step-time
+		updateAnimationStepTime((float)deltaTime, minFPS, maxFPS);
+	}
 }
 
-// Render Entry
-//----------------------------------------------------------------------------------------
-__declspec(naked) void renderLoopEntry(void) {
-#define LOCALOFFSET __LOCAL_SIZE
-	// Prologue
-	_asm {
-		// Create Stack frame
-		PUSH EBX
-		PUSH EBP
-		MOV EBP, ESP
-		SUB ESP, LOCALOFFSET			
-		// Retrieve stack parameters
-		MOV EBX, [EBP+0x0C]
-		PUSH ESI
-		PUSH EDI
-		// Store parameters to globals
-		MOV HighGraphics, EBX		//HighGraphics: EBP
-		MOV TaskFuncPtr, ECX		//Pointer to functions structure: EDI
-	}
-
-	// Start Recorder Process
-	renderLoop();
-
-	// Epilogue
+// Hook
+__declspec(naked) void getDrawThreadMsgCommand(void) {
 	__asm {
-		POP EDI
-		POP ESI
-		MOV ESP, EBP
-		POP EBP
-		POP EBX
-		RETN 4
+		MOV EAX, [ECX+0Ch] // Put msgCmd in EAX (Return value)
+		PUSHAD
+		PUSH EAX
+		CALL updateFramerate // Call updateFramerate(msgCmd)
+		POPAD
+		RETN
 	}
 }
 
+//----------------------------------------------------------------------------------------
+// Game Patches
+//----------------------------------------------------------------------------------------
 void applyFPSPatch() {
 	enableGFWLCompatibility();
 
@@ -296,19 +169,24 @@ void applyFPSPatch() {
 	if(exeHandle != NULL)
 		imageBase = (DWORD)exeHandle;
 
-	// Patches
+	// Init counter for frame-rate calculations
+	lastRenderTime = 0.0f;
+	QueryPerformanceFrequency(&timerFreq);
+	QueryPerformanceCounter(&counterAtStart);
+
+	// Binary patches
 	//--------------------------------------------------------------
 	DWORD address;
 	DWORD data;
 
 	// Override D3D Presentation Interval
-	address = convertAddress(0x010275AE); 
+	address = convertAddress(ADDR_PRESINT);
 	data = 5; //Set to immediate
 	writeToAddress(&data, address, sizeof(data));
 
-	// Detour Render loop entry
-	address = convertAddress(0x00BD6000);
-	DetourApply((BYTE*)address, (BYTE*)renderLoopEntry, 6, 0);
+	// Detour call to getDrawThreadMsgCommand
+	address = convertAddress(ADDR_GETCMD);
+	DetourApply((BYTE*)address, (BYTE*)getDrawThreadMsgCommand, 5, CALLOP);
 		
 	SDLOG(0, "FPS rate unlocked\n");
 }

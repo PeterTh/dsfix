@@ -34,3 +34,5 @@ ACTION(reloadAAEffect, RSManager::get().reloadAA())
 ACTION(singleFrameFullCapture, RSManager::get().enableSingleFrameCapture())
 ACTION(userTrigger, SDLOG(0, "================================================================= USER TRIGGER ===\n"))
 ACTION(reloadHUDVertices, RSManager::get().reloadHudVertices());
+
+ACTION(togglePaused, RSManager::get().togglePaused());

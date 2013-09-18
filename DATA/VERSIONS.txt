@@ -1,3 +1,11 @@
+19-09-2013 -- version 2.1
+=========================
+- Made FPS unlocking compatible with the updated version of Dark Souls  released 2 days ago
+  (thanks boowoo90 for providing the updated addresses)
+- Added a configurable pause key (built for taking nice action screenshots. Don't try to use online)
+- Changed frame rate calculation to perhaps prevent rare 59 FPS issue when playing for a long time
+
+
 22-12-2012 -- version 2.0.1
 =========================
 - Fixed HUD modification bug introduced in 2.0

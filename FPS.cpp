@@ -8,6 +8,7 @@
 #include "Settings.h"
 #include "main.h"
 #include "Detouring.h"
+#include "RenderstateManager.h"
 
 void enableGFWLCompatibility(void);
 
@@ -22,7 +23,7 @@ static DWORD originalBase = NULL;
 static DWORD imageBase = NULL;
 
 // Hook Globals
-float lastRenderTime;
+double lastRenderTime;
 static LARGE_INTEGER timerFreq;
 static LARGE_INTEGER counterAtStart;
 
@@ -70,15 +71,17 @@ void updateAnimationStepTime(float stepTime, float minFPS, float maxFPS) {
 		FPS = maxFPS;
 	
 	float cappedStep = 1/(float)FPS;
+	if(RSManager::get().isPaused()) cappedStep = 0.000000000000000001f;
 	DWORD data = *(DWORD*)&cappedStep;
+
 	writeToAddress(&data, convertAddress(ADDR_TS), sizeof(data));
 }
 
 // Timer
-float getElapsedTime(void) {
+double getElapsedTime(void) {
 	LARGE_INTEGER c;
 	QueryPerformanceCounter(&c);
-	return (float)( (c.QuadPart - counterAtStart.QuadPart) * 1000.0f / (float)timerFreq.QuadPart );
+	return (double)( (c.QuadPart - counterAtStart.QuadPart) * 1000.0 / (double)timerFreq.QuadPart );
 }
 
 // Detour
@@ -132,14 +135,14 @@ void _stdcall updateFramerate(unsigned int cmd) {
 	// If rendering was performed, update animation step-time
 	if((cmd == 2) || (cmd == 5)) {
 		// FPS regulation based on previous render
-		float maxFPS = (float)Settings::get().getCurrentFPSLimit();
-		float minFPS = 10.0f;
-		float currentTime = getElapsedTime();
-		float deltaTime = currentTime - lastRenderTime;
+		double maxFPS = (double)Settings::get().getCurrentFPSLimit();
+		double minFPS = 10.0f;
+		double currentTime = getElapsedTime();
+		double deltaTime = currentTime - lastRenderTime;
 		lastRenderTime = currentTime;
 
 		// Update step-time
-		updateAnimationStepTime((float)deltaTime, minFPS, maxFPS);
+		updateAnimationStepTime((float)deltaTime, (float)minFPS, (float)maxFPS);
 	}
 }
 

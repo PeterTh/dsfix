@@ -6,4 +6,4 @@
 void applyFPSPatch();
 
 // returns time since startup in milliseconds
-float getElapsedTime(void);
+double getElapsedTime(void);

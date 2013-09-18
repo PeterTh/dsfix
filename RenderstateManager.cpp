@@ -428,15 +428,6 @@ HRESULT RSManager::redirectSetDepthStencilSurface(IDirect3DSurface9* pNewZStenci
 	return d3ddev->SetDepthStencilSurface(pNewZStencil);
 }
 
-void RSManager::registerTexture(IDirect3DTexture9* ppTexture) {
-	//texIndices.insert(std::make_pair(ppTexture, texIndex));
-	//D3DSURFACE_DESC desc; 
-	//ppTexture->GetLevelDesc(0, &desc);
-	//SDLOG(1, "RenderstateManager: registered texture %p as %d\n", ppTexture, texIndex);
-	//SDLOG(1, " - %4ux%4u %16s %p\n", desc.Width, desc.Height, D3DUtil_D3DFormatToString(desc.Format), desc.Usage);
-	//texIndex++;
-}
-
 unsigned RSManager::getTextureIndex(IDirect3DTexture9* ppTexture) {
 	TexIntMap::iterator it = texIndices.find(ppTexture);
 	if(it != texIndices.end()) return it->second;
@@ -794,16 +785,16 @@ HRESULT RSManager::redirectSetRenderState(D3DRENDERSTATETYPE State, DWORD Value)
 }
 
 void RSManager::frameTimeManagement() {
-	float renderTime = getElapsedTime() - lastPresentTime;
+	double renderTime = getElapsedTime() - lastPresentTime;
 
 	// implement FPS threshold
-	float thresholdRenderTime = (1000.0f / Settings::get().getFPSThreshold()) + 0.2f;
+	double thresholdRenderTime = (1000.0f / Settings::get().getFPSThreshold()) + 0.2;
 	if(renderTime > thresholdRenderTime) lowFPSmode = true;
 	else if(renderTime < thresholdRenderTime - 1.0f) lowFPSmode = false;
 
 	// implement FPS cap
 	if(Settings::get().getUnlockFPS()) {
-		float desiredRenderTime = (1000.0f / Settings::get().getCurrentFPSLimit()) - 0.1f;
+		double desiredRenderTime = (1000.0 / Settings::get().getCurrentFPSLimit()) - 0.1;
 		while(renderTime < desiredRenderTime) {
 			SwitchToThread();
 			renderTime = getElapsedTime() - lastPresentTime;

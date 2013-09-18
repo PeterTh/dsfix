@@ -18,7 +18,7 @@ class RSManager {
 	D3DVIEWPORT9 viewport;
 	IDirect3DDevice9 *d3ddev;
 
-	float lastPresentTime;
+	double lastPresentTime;
 	bool lowFPSmode;
 
 	bool doAA;
@@ -42,6 +42,8 @@ class RSManager {
 
 	bool hideHud;
 	bool onHudRT, pausedHudRT;
+
+	bool paused;
 	
 	std::set<int> dumpedTextures;
 
@@ -151,7 +153,6 @@ public:
 	
 	void registerMainRenderTexture(IDirect3DTexture9* pTexture);
 	void registerMainRenderSurface(IDirect3DSurface9* pSurface);
-	void registerTexture(IDirect3DTexture9* ppTexture);
 	unsigned getTextureIndex(IDirect3DTexture9* ppTexture);
 	void registerD3DXCreateTextureFromFileInMemory(LPCVOID pSrcData, UINT SrcDataSize, LPDIRECT3DTEXTURE9 pTexture);
 	void registerD3DXCompileShader(LPCSTR pSrcData, UINT srcDataLen, const D3DXMACRO *pDefines, LPD3DXINCLUDE pInclude, LPCSTR pFunctionName, LPCSTR pProfile, DWORD Flags, LPD3DXBUFFER * ppShader, LPD3DXBUFFER * ppErrorMsgs, LPD3DXCONSTANTTABLE * ppConstantTable);
@@ -168,6 +169,8 @@ public:
 	HRESULT redirectPresent(CONST RECT * pSourceRect, CONST RECT * pDestRect, HWND hDestWindowOverride, CONST RGNDATA * pDirtyRegion);
 
 	void frameTimeManagement();
+	void togglePaused() { paused = !paused; }
+	bool isPaused() { return paused; }
 
 	HRESULT redirectDrawIndexedPrimitiveUP(D3DPRIMITIVETYPE PrimitiveType, UINT MinIndex, UINT NumVertices, UINT PrimitiveCount, CONST void* pIndexData, D3DFORMAT IndexDataFormat, CONST void* pVertexStreamZeroData, UINT VertexStreamZeroStride);
 	HRESULT redirectDrawPrimitiveUP(D3DPRIMITIVETYPE PrimitiveType, UINT PrimitiveCount, CONST void* pVertexStreamZeroData, UINT VertexStreamZeroStride);

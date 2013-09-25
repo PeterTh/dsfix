@@ -1,4 +1,3 @@
-// - mouse cursor hiding/capturing
 // - increase DoF resolution
 // - further gaussian blur of high-res DoF targets to approximate intended degree of sharpness
 // - screen-space ambient occlusion using existing z data (rendertexture #3 after first pass!)

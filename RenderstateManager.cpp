@@ -204,18 +204,22 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 	if(nrts == 1) { // we are switching to the RT that will be the main rendering target for this frame
 		// store it for later use
 		mainRT = pRenderTarget;
+		SDLOG(0, "Storing RT as main RT: %p\n", mainRT);
 	}
 
 	if(nrts == 11) { // we are switching to the RT used to store the Z value in the 24 RGB bits (among other things)
 		// lets store it for later use
 		zSurf = pRenderTarget;
+		SDLOG(0, "Storing RT as Z buffer RT: %p\n", zSurf);
 	}
 
 	if(mainRT && pRenderTarget == mainRT) {
+		SDLOG(0, "MainRT uses: %d + 1\n", mainRTuses);
 		++mainRTuses;
 	}
 
-	if(mainRTuses == 2 && mainRT && zSurf && (ssao && doSsao)) { // we are switching away from the initial 3D-rendered image, do SSAO
+	// we are switching away from the initial 3D-rendered image, do AA and SSAO
+	if(mainRTuses == 2 && mainRT && zSurf && ((ssao && doSsao) || (doAA && (smaa || fxaa)))) { 
 		IDirect3DSurface9 *oldRenderTarget;
 		d3ddev->GetRenderTarget(0, &oldRenderTarget);
 		if(oldRenderTarget == mainRT) {
@@ -232,6 +236,12 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 					d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
 					d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
 					d3ddev->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
+					// perform AA processing
+					if(!lowFPSmode && doAA && (smaa || fxaa)) {
+						if(smaa) smaa->go(tex, tex, rgbaBuffer1Surf, SMAA::INPUT_COLOR);
+						else fxaa->go(tex, rgbaBuffer1Surf);
+						d3ddev->StretchRect(rgbaBuffer1Surf, NULL, oldRenderTarget, NULL, D3DTEXF_NONE);
+					}
 					// perform SSAO
 					if(ssao && doSsao) {
 						ssao->go(tex, zTex, rgbaBuffer1Surf);
@@ -241,32 +251,6 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 					zTex->Release();
 					//if(takeScreenshot) D3DXSaveSurfaceToFile("1effect_buff.bmp", D3DXIFF_BMP, rgbaBuffer1Surf, NULL, NULL);
 					//if(takeScreenshot) D3DXSaveSurfaceToFile("1effect_post.bmp", D3DXIFF_BMP, oldRenderTarget, NULL, NULL);
-				}
-				tex->Release();				
-			}
-		}
-		oldRenderTarget->Release();
-	}
-
-	if(mainRTuses == 5 && !lowFPSmode && mainRT && zSurf && doAA && (smaa || fxaa)) { // time to do AA
-		IDirect3DSurface9 *oldRenderTarget;
-		d3ddev->GetRenderTarget(0, &oldRenderTarget);
-		if(oldRenderTarget == mainRT) {
-			// final renderbuffer has to be from texture, just making sure here
-			if(IDirect3DTexture9* tex = getSurfTexture(oldRenderTarget)) {
-				// check size just to make even more sure
-				D3DSURFACE_DESC desc;
-				oldRenderTarget->GetDesc(&desc);
-				if(desc.Width == Settings::get().getRenderWidth() && desc.Height == Settings::get().getRenderHeight()) {
-					storeRenderState();
-					d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
-					d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
-					d3ddev->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
-					// perform AA processing
-					if(smaa) smaa->go(tex, tex, rgbaBuffer1Surf, SMAA::INPUT_LUMA);
-					else fxaa->go(tex, rgbaBuffer1Surf);
-					d3ddev->StretchRect(rgbaBuffer1Surf, NULL, oldRenderTarget, NULL, D3DTEXF_NONE);
-					restoreRenderState();
 				}
 				tex->Release();				
 			}
@@ -302,6 +286,37 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 		oldRenderTarget->Release();
 	}
 
+	// Timing for hudless screenshots
+	if(mainRTuses == 11 && takeScreenshot) {
+		IDirect3DSurface9 *oldRenderTarget;
+		d3ddev->GetRenderTarget(0, &oldRenderTarget);
+		if(oldRenderTarget != mainRT) {
+			static int toggleSS = 0;
+			toggleSS = (toggleSS+1)%2;
+			if(!toggleSS) {
+				takeScreenshot = false;
+				SDLOG(0, "Capturing screenshot\n");
+				char timebuf[128], buffer[512];
+				time_t ltime;
+				time(&ltime);
+				struct tm *timeinfo;
+				timeinfo = localtime(&ltime);
+				strftime(timebuf, 128, "screenshot_%Y-%m-%d_%H-%M-%S.png", timeinfo);
+				sprintf(buffer, "%s\\%s", Settings::get().getScreenshotDir().c_str(), timebuf);
+				SDLOG(0, " - to %s\n", buffer);
+				
+				D3DSURFACE_DESC desc;
+				oldRenderTarget->GetDesc(&desc);
+				IDirect3DSurface9 *convertedSurface;
+				d3ddev->CreateRenderTarget(desc.Width, desc.Height, D3DFMT_X8R8G8B8, D3DMULTISAMPLE_NONE, 0, true, &convertedSurface, NULL);
+				D3DXLoadSurfaceFromSurface(convertedSurface, NULL, NULL, oldRenderTarget, NULL, NULL, D3DX_FILTER_POINT, 0);
+				D3DXSaveSurfaceToFile(buffer, D3DXIFF_PNG, convertedSurface, NULL, NULL);
+				convertedSurface->Release();
+			}
+		}
+		oldRenderTarget->Release();
+	}
+
 	if(rddp >= 4) { // we just finished rendering the frame (pre-HUD)
 		IDirect3DSurface9 *oldRenderTarget;
 		d3ddev->GetRenderTarget(0, &oldRenderTarget);
@@ -311,20 +326,6 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 			D3DSURFACE_DESC desc;
 			oldRenderTarget->GetDesc(&desc);
 			if(desc.Width == Settings::get().getRenderWidth() && desc.Height == Settings::get().getRenderHeight()) {
-				// screenshots
-				if(takeScreenshot && rddp >= 6) {
-					takeScreenshot = false;
-					SDLOG(0, "Capturing screenshot\n");
-					char timebuf[128], buffer[512];
-					time_t ltime;
-					time(&ltime);
-					struct tm *timeinfo;
-					timeinfo = localtime(&ltime);
-					strftime(timebuf, 128, "screenshot_%Y-%m-%d_%H-%M-%S.bmp", timeinfo);
-					sprintf(buffer, "%s\\%s", Settings::get().getScreenshotDir().c_str(), timebuf);
-					SDLOG(0, " - to %s\n", buffer);
-					D3DXSaveSurfaceToFile(buffer, D3DXIFF_BMP, oldRenderTarget, NULL, NULL);
-				}
 				// HUD stuff
 				if(hud && doHud && rddp == 9) {
 					SDLOG(0, "Starting HUD rendering\n");

@@ -9,7 +9,7 @@
 
 class SSAO : public Effect {
 public:
-	enum Type { VSSAO, HBAO, SCAO };
+	enum Type { VSSAO, HBAO, SCAO, VSSAO2 };
 
     SSAO(IDirect3DDevice9 *device, int width, int height, unsigned strength, Type type);
     virtual ~SSAO();

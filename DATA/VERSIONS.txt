@@ -1,3 +1,11 @@
+28-09-2013 -- version 2.2
+=========================
+- Updated AA, SSAO and screenshot functionality to be compatible with latest Dark Souls version
+- Screenshots are now stored as PNG
+- Reduced number of state changes with AA and SSAO enabled
+- Added "VSSAO2" AO option (based on a configuration contributed by Asmodean)
+
+
 19-09-2013 -- version 2.1
 =========================
 - Made FPS unlocking compatible with the updated version of Dark Souls released 2 days ago

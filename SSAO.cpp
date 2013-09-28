@@ -46,6 +46,7 @@ SSAO::SSAO(IDirect3DDevice9 *device, int width, int height, unsigned strength, T
 		case VSSAO: shader = "dsfix\\VSSAO.fx"; break;
 		case HBAO: shader = "dsfix\\HBAO.fx"; break;
 		case SCAO: shader = "dsfix\\SCAO.fx"; break;
+		case VSSAO2: shader = "dsfix\\VSSAO2.fx"; break;
 	}
 	SDLOG(0, "%s load, scale %s, strength %s\n", shader, scaleText.c_str(), strengthMacros[strength].Name);	
 	ID3DXBuffer* errors;

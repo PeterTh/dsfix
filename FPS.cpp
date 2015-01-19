@@ -30,11 +30,11 @@ static LARGE_INTEGER counterAtStart;
 // Hook Addresses
 //------------------------------------
 // Time-step value address
-#define ADDR_TS	0x01245E80  // 1.0.0 was 0x012497F0, 1.0.1 was 0x012498E0
+#define ADDR_TS		0x011E4D60 // -dsptde2.0- was 0x011E4D70, 1.0.0 was 0x012497F0, 1.0.1 was 0x012498E0, 1.0.2 (xlive) was 0x01245E80 
 // Presentation interval address
-#define ADDR_PRESINT 0x01025E5E // 1.0.0 was 0x010275AE, 1.0.1 was 0x0102788E
+#define ADDR_PRESINT	0x00FFA308 // -dsptde2.0- was 0x00FFA15E, 1.0.0 was 0x010275AE, 1.0.1 was 0x0102788E, 1.0.2 (xlive) was 0x01025E5E
 // getDrawThreadMsgCommand address in HGCommandDispatcher loop
-#define ADDR_GETCMD	0x00BD5A8D // 1.0.0 was 0x00BD601D, 1.0.1 was 0x00BD60ED
+#define ADDR_GETCMD	0x00BAC4DD // -dsptde2.0- was 0x00BAC3DD, 1.0.0 was 0x00BD601D, 1.0.1 was 0x00BD60ED, 1.0.2 (xlive) was 0x00BD5A8D
 
 //----------------------------------------------------------------------------------------
 // Support Functions

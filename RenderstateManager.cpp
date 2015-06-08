@@ -62,7 +62,7 @@ HRESULT RSManager::redirectPresent(CONST RECT *pSourceRect, CONST RECT *pDestRec
 	}
 	if(timingIntroMode) {
 		skippedPresents++;
-		if(skippedPresents >= 300u && !Settings::get().getUnlockFPS()) {
+		if(skippedPresents >= 1200u && !Settings::get().getUnlockFPS()) {
 			SDLOG(1, "Intro mode ended (timeout)!\n");
 			timingIntroMode = false;
 		}

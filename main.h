@@ -18,9 +18,11 @@
 
 #pragma once
 
-#define VERSION "2.2"
+#define VERSION "2.4"
 
 #define RELEASE_VER
+
+#define WITHOUT_GFWL_LIB
 
 #ifndef RELEASE_VER
 #define SDLOG(_level, _str, ...) if(Settings::get().getLogLevel() > _level) { sdlog(_str, __VA_ARGS__); }

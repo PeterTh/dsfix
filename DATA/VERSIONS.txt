@@ -1,3 +1,14 @@
+19-01-2015 -- version 2.4
+=========================
+- The FPS override now scans the binary to try and find the correct addresses
+  to perform the patching required for variable FPS support (Nwks)
+
+
+15-12-2014 -- version 2.3
+=========================
+- Make FPS override work with the Steamworks version (all credit goes to boowoo90 for the quick fix)
+
+
 28-09-2013 -- version 2.2
 =========================
 - Updated AA, SSAO and screenshot functionality to be compatible with latest Dark Souls version

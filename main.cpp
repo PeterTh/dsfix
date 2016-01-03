@@ -98,7 +98,7 @@ void __cdecl sdlogtime() {
 }
 
 void __cdecl sdlog(const char *fmt, ...) {
-	if(ofile.good()) {
+	if(ofile.goo()) {
 		if(!fmt) { return; }
 
 		va_list va_alist;

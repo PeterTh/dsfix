@@ -133,5 +133,5 @@ void errorExit(LPTSTR lpszFunction) {
 }
 
 bool fileExists(const char *filename) {
-  return std::ifstream ifile(filename).good();
+  return std::ifstream(filename).good();
 }

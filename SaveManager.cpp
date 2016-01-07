@@ -24,9 +24,16 @@ void SaveManager::init() {
 		HANDLE searchHandle = FindFirstFile(buffer, &userSaveFolderData);
 		bool found = false;
 		if(searchHandle != INVALID_HANDLE_VALUE) {
-			do {
-				if(strlen(userSaveFolderData.cFileName)>2) {
-					sprintf_s(buffer, "%s%s%s", documents, "\\NBGI\\DarkSouls\\", userSaveFolderData.cFileName);
+            do {
+                std::string fn = userSaveFolderData.cFileName;
+                bool dir = userSaveFolderData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+                bool saveFile = fn.substr(fn.find_last_of(".") + 1) == "sl2";
+                // newer versions don't contain an additional folder under NBGI\\DarkSouls
+                if (fn.size() > 2 && (dir || saveFile)) {
+                    if (dir)
+					    sprintf_s(buffer, "%s%s%s", documents, "\\NBGI\\DarkSouls\\", userSaveFolderData.cFileName);
+                    else
+                        sprintf_s(buffer, "%s%s", documents, "\\NBGI\\DarkSouls");
 					userSaveFolder = string(buffer);
 					SDLOG(0, "SaveManager: user save folder is %s\n", userSaveFolder.c_str());
 					found = true;

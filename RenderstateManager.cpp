@@ -757,45 +757,7 @@ HRESULT RSManager::redirectD3DXCreateTextureFromFileInMemoryEx(LPDIRECT3DDEVICE9
         if (Settings::get().getEnableTexturePrefetch() && cachedTexFiles.find(hash) != cachedTexFiles.end())
         {
             SDLOG(0, "Cached texture file found! size: %ld, hash: %8x \n", cachedTexFiles[hash].size, hash);
-            HRESULT ret;
-            // delete comments to check the running times of different methods
-            //double startTime;
-            /*D3DXIMAGE_INFO imageInfo;
-            D3DXGetImageInfoFromFileInMemory(cachedTexFiles[hash].buffer, cachedTexFiles[hash].size, &imageInfo);
-            SDLOG(0, "file info: Width %u, Height %u, Depth %u, MipLevels %u, Format %d, ResourceType %d, ImageFileFormat %d \n", 
-                imageInfo.Width, imageInfo.Height, imageInfo.Depth, imageInfo.MipLevels, imageInfo.Format, imageInfo.ResourceType, imageInfo.ImageFileFormat);
-            SDLOG(0, "requested: Width %u, Height %u, MipLevels %u, Format %d, Pool: %d D3DX_DEFAULT %u\n",
-                Width, Height, MipLevels, Format, Pool, D3DX_DEFAULT);
-            char buffer[128];
-            startTime = getElapsedTime();
-            sprintf_s(buffer, "dsfix/tex_override/%08x.png", hash);
-            if (fileExists(buffer)) {
-                ret = D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
-            }
-            sprintf_s(buffer, "dsfix/tex_override/%08x.dds", hash);
-            if (fileExists(buffer)) {
-                ret = D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
-            }
-            SDLOG(0, "From disk returned: %08lx time: %f\n", ret, getElapsedTime() - startTime);
-
-            startTime = getElapsedTime();
-            sprintf_s(buffer, "dsfix/tex_override/%08x.png", hash);
-            if (fileExists(buffer)) {
-                ret = D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
-            }
-            sprintf_s(buffer, "dsfix/tex_override/%08x.dds", hash);
-            if (fileExists(buffer)) {
-                ret = D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
-            }
-            SDLOG(0, "From disk returned with file format matching: %08lx time: %f\n", ret, getElapsedTime() - startTime);
-
-            startTime = getElapsedTime();
-            ret = TrueD3DXCreateTextureFromFileInMemoryEx(pDevice, cachedTexFiles[hash].buffer, cachedTexFiles[hash].size, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
-            SDLOG(0, "From memory returned: %08lx time: %f\n", ret, getElapsedTime() - startTime);*/
-            //startTime = getElapsedTime();
-            ret = TrueD3DXCreateTextureFromFileInMemoryEx(pDevice, cachedTexFiles[hash].buffer, cachedTexFiles[hash].size, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
-            //SDLOG(0, "From memory with file format matching returned: %08lx time: %f\n", ret, getElapsedTime() - startTime);
-            return ret;
+            return TrueD3DXCreateTextureFromFileInMemoryEx(pDevice, cachedTexFiles[hash].buffer, cachedTexFiles[hash].size, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
         }
         else
         {

@@ -34,9 +34,71 @@ void RSManager::initResources() {
 	rgbaBuffer1Tex->GetSurfaceLevel(0, &rgbaBuffer1Surf);
 	d3ddev->CreateDepthStencilSurface(rw, rh, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, false, &depthStencilSurf, NULL);
 	d3ddev->CreateStateBlock(D3DSBT_ALL, &prevStateBlock);
+    if (Settings::get().getEnableTextureOverride() && Settings::get().getEnableTexturePrefetch())
+        prefetchTextures();
 	SDLOG(0, "RenderstateManager resource initialization completed\n");
 	if(!inited) startDetour(); // on first init only
 	inited = true;
+}
+
+void RSManager::prefetchTextures()
+{
+    SDLOG(0, "Prefetch overwrite textures to memory started\n");
+    double startTime = getElapsedTime();
+    WIN32_FIND_DATA textureFile;
+    const char* texturePath = "dsfix\\tex_override\\";
+    char tmp[128];
+    sprintf_s(tmp, 128, "%s*", texturePath);
+    HANDLE searchHandle = FindFirstFile(tmp, &textureFile);
+    if (searchHandle != INVALID_HANDLE_VALUE) {
+        do {
+            SDLOG(0, "initTexture: %s ", textureFile.cFileName);
+            sprintf_s(tmp, 128, "%s%s", texturePath, textureFile.cFileName);
+            std::FILE *fp = std::fopen(tmp, "rb");
+            if (fp)
+            {
+                std::string filename = textureFile.cFileName;
+                const size_t period_idx = filename.rfind('.');
+                std::string extension = "";
+                if (std::string::npos != period_idx)
+                {
+                    extension = filename.substr(period_idx);
+                    filename = filename.erase(period_idx);
+                    SDLOG(0, "filename: %s extension: %s ", filename.c_str(), extension.c_str());
+                }
+                if (extension == ".bmp" ||
+                    extension == ".dds" ||
+                    extension == ".dib" ||
+                    extension == ".hdr" ||
+                    extension == ".jpg" ||
+                    extension == ".pfm" ||
+                    extension == ".png" ||
+                    extension == ".ppm" ||
+                    extension == ".tga")
+                {
+                    MemData data;
+                    data.size = textureFile.nFileSizeLow;
+                    SDLOG(0, "size: %ld ", data.size);
+                    data.buffer = new char[data.size];
+                    std::fread(&data.buffer[0], 1, data.size, fp);
+                    std::fclose(fp);
+                    UINT32 decimalValue;
+                    sscanf(filename.c_str(), "%08x", &decimalValue);
+                    SDLOG(0, "texture hash: %s hex: %08x\n", filename.c_str(), decimalValue);
+                    cachedTexFiles.insert(std::pair<UINT32, MemData>(decimalValue, data));
+                }
+            }
+        } while (FindNextFile(searchHandle, &textureFile));
+    }
+    SDLOG(0, "Prefetch overwrite textures to memory ended, time: %f\n", getElapsedTime() - startTime);
+}
+
+RSManager::~RSManager()
+{
+    for (auto texData : cachedTexFiles)
+    {
+        SAFEDELETE(texData.second.buffer);
+    }
 }
 
 void RSManager::releaseResources() {
@@ -82,7 +144,7 @@ HRESULT RSManager::redirectPresent(CONST RECT *pSourceRect, CONST RECT *pDestRec
 	
 	frameTimeManagement();
 	//if(Settings::get().getEnableTripleBuffering()) return ((IDirect3DDevice9Ex*)d3ddev)->PresentEx(NULL, NULL, NULL, NULL, D3DPRESENT_FORCEIMMEDIATE);
-	return d3ddev->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
+	 return d3ddev->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
 }
 
 D3DPRESENT_PARAMETERS RSManager::adjustPresentationParameters(const D3DPRESENT_PARAMETERS *pPresentationParameters) {
@@ -204,17 +266,17 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 	if(nrts == 1) { // we are switching to the RT that will be the main rendering target for this frame
 		// store it for later use
 		mainRT = pRenderTarget;
-		SDLOG(0, "Storing RT as main RT: %p\n", mainRT);
+		SDLOG(4, "Storing RT as main RT: %p\n", mainRT);
 	}
 
 	if(nrts == 11) { // we are switching to the RT used to store the Z value in the 24 RGB bits (among other things)
 		// lets store it for later use
 		zSurf = pRenderTarget;
-		SDLOG(0, "Storing RT as Z buffer RT: %p\n", zSurf);
+		SDLOG(4, "Storing RT as Z buffer RT: %p\n", zSurf);
 	}
 
 	if(mainRT && pRenderTarget == mainRT) {
-		SDLOG(0, "MainRT uses: %d + 1\n", mainRTuses);
+		SDLOG(4, "MainRT uses: %d + 1\n", mainRTuses);
 		++mainRTuses;
 	}
 
@@ -444,8 +506,8 @@ void RSManager::registerD3DXCreateTextureFromFileInMemory(LPCVOID pSrcData, UINT
 		IDirect3DSurface9* surf;
 		((IDirect3DTexture9*)pTexture)->GetSurfaceLevel(0, &surf);
 		char buffer[128];
-		sprintf_s(buffer, "dsfix/tex_dump/%08x.tga", hash);
-		D3DXSaveSurfaceToFile(GetDirectoryFile(buffer), D3DXIFF_TGA, surf, NULL, NULL);
+        sprintf_s(buffer, "dsfix/tex_dump/%08x.tga", hash);
+        D3DXSaveSurfaceToFile(GetDirectoryFile(buffer), D3DXIFF_TGA, surf, NULL, NULL);
 		surf->Release();
 	}
 	registerKnowTexture(pSrcData, SrcDataSize, pTexture);
@@ -690,21 +752,67 @@ unsigned RSManager::isDof(unsigned width, unsigned height) {
 HRESULT RSManager::redirectD3DXCreateTextureFromFileInMemoryEx(LPDIRECT3DDEVICE9 pDevice, LPCVOID pSrcData, UINT SrcDataSize, UINT Width, UINT Height, UINT MipLevels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, DWORD Filter, DWORD MipFilter, D3DCOLOR ColorKey, D3DXIMAGE_INFO* pSrcInfo, PALETTEENTRY* pPalette, LPDIRECT3DTEXTURE9* ppTexture) {
 	if(Settings::get().getEnableTextureOverride()) {
 		UINT32 hash = SuperFastHash((char*)const_cast<void*>(pSrcData), SrcDataSize);
-		SDLOG(4, "Trying texture override size: %8u, hash: %8x\n", SrcDataSize, hash);
+		SDLOG(0, "Trying texture override size: %8u, hash: %8x\n", SrcDataSize, hash);
 		
-		char buffer[128];
-		sprintf_s(buffer, "dsfix/tex_override/%08x.png", hash);
-		if(fileExists(buffer)) {
-			SDLOG(3, "Texture override (png)! hash: %8x\n", SrcDataSize, hash);
-			return D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
-		}
-		sprintf_s(buffer, "dsfix/tex_override/%08x.dds", hash);
-		if(fileExists(buffer)) {
-			SDLOG(3, "Texture override (dds)! hash: %8x\n", SrcDataSize, hash);
-			return D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
-		}
+        if (Settings::get().getEnableTexturePrefetch() && cachedTexFiles.find(hash) != cachedTexFiles.end())
+        {
+            SDLOG(0, "Cached texture file found! size: %ld, hash: %8x \n", cachedTexFiles[hash].size, hash);
+            HRESULT ret;
+            // delete comments to check the running times of different methods
+            //double startTime;
+            /*D3DXIMAGE_INFO imageInfo;
+            D3DXGetImageInfoFromFileInMemory(cachedTexFiles[hash].buffer, cachedTexFiles[hash].size, &imageInfo);
+            SDLOG(0, "file info: Width %u, Height %u, Depth %u, MipLevels %u, Format %d, ResourceType %d, ImageFileFormat %d \n", 
+                imageInfo.Width, imageInfo.Height, imageInfo.Depth, imageInfo.MipLevels, imageInfo.Format, imageInfo.ResourceType, imageInfo.ImageFileFormat);
+            SDLOG(0, "requested: Width %u, Height %u, MipLevels %u, Format %d, Pool: %d D3DX_DEFAULT %u\n",
+                Width, Height, MipLevels, Format, Pool, D3DX_DEFAULT);
+            char buffer[128];
+            startTime = getElapsedTime();
+            sprintf_s(buffer, "dsfix/tex_override/%08x.png", hash);
+            if (fileExists(buffer)) {
+                ret = D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+            }
+            sprintf_s(buffer, "dsfix/tex_override/%08x.dds", hash);
+            if (fileExists(buffer)) {
+                ret = D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+            }
+            SDLOG(0, "From disk returned: %08lx time: %f\n", ret, getElapsedTime() - startTime);
+
+            startTime = getElapsedTime();
+            sprintf_s(buffer, "dsfix/tex_override/%08x.png", hash);
+            if (fileExists(buffer)) {
+                ret = D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+            }
+            sprintf_s(buffer, "dsfix/tex_override/%08x.dds", hash);
+            if (fileExists(buffer)) {
+                ret = D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+            }
+            SDLOG(0, "From disk returned with file format matching: %08lx time: %f\n", ret, getElapsedTime() - startTime);
+
+            startTime = getElapsedTime();
+            ret = TrueD3DXCreateTextureFromFileInMemoryEx(pDevice, cachedTexFiles[hash].buffer, cachedTexFiles[hash].size, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+            SDLOG(0, "From memory returned: %08lx time: %f\n", ret, getElapsedTime() - startTime);*/
+            //startTime = getElapsedTime();
+            ret = TrueD3DXCreateTextureFromFileInMemoryEx(pDevice, cachedTexFiles[hash].buffer, cachedTexFiles[hash].size, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+            //SDLOG(0, "From memory with file format matching returned: %08lx time: %f\n", ret, getElapsedTime() - startTime);
+            return ret;
+        }
+        else
+        {
+            char buffer[128];
+            sprintf_s(buffer, "dsfix/tex_override/%08x.png", hash);
+            if (fileExists(buffer)) {
+                SDLOG(0, "Texture override (png)! hash: %08x\n", hash);
+                return D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+            }
+            sprintf_s(buffer, "dsfix/tex_override/%08x.dds", hash);
+            if (fileExists(buffer)) {
+                SDLOG(0, "Texture override (dds)! hash: %08x\n", hash);
+                return D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+            }
+        }
 	}
-	return TrueD3DXCreateTextureFromFileInMemoryEx(pDevice, pSrcData, SrcDataSize, Width, Height, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+    return TrueD3DXCreateTextureFromFileInMemoryEx(pDevice, pSrcData, SrcDataSize, Width, Height, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
 }
 
 void RSManager::storeRenderState() {

@@ -101,7 +101,7 @@ void SaveManager::backup(const time_t curTime) {
 		if(CopyFile(saveFiles[i].c_str(), newPath.c_str(), false) == 0) {
 			SDLOG(0, "ERROR: SaveManager failed to back up file! (Copying %s to %s)\n", saveFiles[i].c_str(), buffer);
 		} else {
-			SDLOG(1, "SaveManager: Backed up %s\n", fn);
+			SDLOG(1, "SaveManager: Backed up %s\n", fn.c_str());
 		}
 	}
 	removeOldBackups();

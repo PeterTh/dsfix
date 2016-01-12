@@ -34,9 +34,71 @@ void RSManager::initResources() {
 	rgbaBuffer1Tex->GetSurfaceLevel(0, &rgbaBuffer1Surf);
 	d3ddev->CreateDepthStencilSurface(rw, rh, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, false, &depthStencilSurf, NULL);
 	d3ddev->CreateStateBlock(D3DSBT_ALL, &prevStateBlock);
+    if (Settings::get().getEnableTextureOverride() && Settings::get().getEnableTexturePrefetch())
+        prefetchTextures();
 	SDLOG(0, "RenderstateManager resource initialization completed\n");
 	if(!inited) startDetour(); // on first init only
 	inited = true;
+}
+
+void RSManager::prefetchTextures()
+{
+    SDLOG(0, "Prefetch overwrite textures to memory started\n");
+    double startTime = getElapsedTime();
+    WIN32_FIND_DATA textureFile;
+    const char* texturePath = "dsfix\\tex_override\\";
+    char tmp[128];
+    sprintf_s(tmp, 128, "%s*", texturePath);
+    HANDLE searchHandle = FindFirstFile(tmp, &textureFile);
+    if (searchHandle != INVALID_HANDLE_VALUE) {
+        do {
+            SDLOG(0, "initTexture: %s ", textureFile.cFileName);
+            sprintf_s(tmp, 128, "%s%s", texturePath, textureFile.cFileName);
+            std::FILE *fp = std::fopen(tmp, "rb");
+            if (fp)
+            {
+                std::string filename = textureFile.cFileName;
+                const size_t period_idx = filename.rfind('.');
+                std::string extension = "";
+                if (std::string::npos != period_idx)
+                {
+                    extension = filename.substr(period_idx);
+                    filename = filename.erase(period_idx);
+                    SDLOG(0, "filename: %s extension: %s ", filename.c_str(), extension.c_str());
+                }
+                if (extension == ".bmp" ||
+                    extension == ".dds" ||
+                    extension == ".dib" ||
+                    extension == ".hdr" ||
+                    extension == ".jpg" ||
+                    extension == ".pfm" ||
+                    extension == ".png" ||
+                    extension == ".ppm" ||
+                    extension == ".tga")
+                {
+                    MemData data;
+                    data.size = textureFile.nFileSizeLow;
+                    SDLOG(0, "size: %ld ", data.size);
+                    data.buffer = new char[data.size];
+                    std::fread(&data.buffer[0], 1, data.size, fp);
+                    std::fclose(fp);
+                    UINT32 decimalValue;
+                    sscanf(filename.c_str(), "%08x", &decimalValue);
+                    SDLOG(0, "texture hash: %s hex: %08x\n", filename.c_str(), decimalValue);
+                    cachedTexFiles.insert(std::pair<UINT32, MemData>(decimalValue, data));
+                }
+            }
+        } while (FindNextFile(searchHandle, &textureFile));
+    }
+    SDLOG(0, "Prefetch overwrite textures to memory ended, time: %f\n", getElapsedTime() - startTime);
+}
+
+RSManager::~RSManager()
+{
+    for (auto texData : cachedTexFiles)
+    {
+        SAFEDELETE(texData.second.buffer);
+    }
 }
 
 void RSManager::releaseResources() {
@@ -692,19 +754,27 @@ HRESULT RSManager::redirectD3DXCreateTextureFromFileInMemoryEx(LPDIRECT3DDEVICE9
 		UINT32 hash = SuperFastHash((char*)const_cast<void*>(pSrcData), SrcDataSize);
 		SDLOG(4, "Trying texture override size: %8u, hash: %8x\n", SrcDataSize, hash);
 		
-		char buffer[128];
-		sprintf_s(buffer, "dsfix/tex_override/%08x.png", hash);
-		if(fileExists(buffer)) {
-			SDLOG(3, "Texture override (png)! hash: %8x\n", SrcDataSize, hash);
-			return D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
-		}
-		sprintf_s(buffer, "dsfix/tex_override/%08x.dds", hash);
-		if(fileExists(buffer)) {
-			SDLOG(3, "Texture override (dds)! hash: %8x\n", SrcDataSize, hash);
-			return D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
-		}
+        if (Settings::get().getEnableTexturePrefetch() && cachedTexFiles.find(hash) != cachedTexFiles.end())
+        {
+            SDLOG(4, "Cached texture file found! size: %ld, hash: %8x \n", cachedTexFiles[hash].size, hash);
+            return TrueD3DXCreateTextureFromFileInMemoryEx(pDevice, cachedTexFiles[hash].buffer, cachedTexFiles[hash].size, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+        }
+        else
+        {
+            char buffer[128];
+            sprintf_s(buffer, "dsfix/tex_override/%08x.png", hash);
+            if (fileExists(buffer)) {
+                SDLOG(4, "Texture override (png)! hash: %08x\n", hash);
+                return D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+            }
+            sprintf_s(buffer, "dsfix/tex_override/%08x.dds", hash);
+            if (fileExists(buffer)) {
+                SDLOG(4, "Texture override (dds)! hash: %08x\n", hash);
+                return D3DXCreateTextureFromFileEx(pDevice, buffer, D3DX_DEFAULT, D3DX_DEFAULT, MipLevels, Usage, D3DFMT_FROM_FILE, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+            }
+        }
 	}
-	return TrueD3DXCreateTextureFromFileInMemoryEx(pDevice, pSrcData, SrcDataSize, Width, Height, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
+    return TrueD3DXCreateTextureFromFileInMemoryEx(pDevice, pSrcData, SrcDataSize, Width, Height, MipLevels, Usage, Format, Pool, Filter, MipFilter, ColorKey, pSrcInfo, pPalette, ppTexture);
 }
 
 void RSManager::storeRenderState() {

@@ -50,6 +50,7 @@ SETTING(std::string, ScreenshotDir, "screenshotDir", ".");
 // Texture Override Options
 SETTING(bool, EnableTextureDumping, "enableTextureDumping", false);
 SETTING(bool, EnableTextureOverride, "enableTextureOverride", false);
+SETTING(bool, EnableTexturePrefetch, "enableTexturePrefetch", false);
 
 // HUD options
 SETTING(bool, EnableHudMod, "enableHudMod", false)

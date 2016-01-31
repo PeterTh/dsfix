@@ -105,6 +105,17 @@ class RSManager {
 	IDirect3DTexture9* prevRenderTex;
 	IDirect3DStateBlock9* prevStateBlock;
 
+    struct MemData
+    {
+        char* buffer;
+        long size;
+    };
+    
+    std::map<UINT32, MemData> cachedTexFiles;
+
+private:
+    ~RSManager();
+
 public:
 	static RSManager& get() {
 		return instance;
@@ -122,6 +133,7 @@ public:
 
 	void initResources();
 	void releaseResources();
+    void prefetchTextures();
 
 	void setViewport(const D3DVIEWPORT9& vp) {
 		viewport = vp;

@@ -21,7 +21,6 @@ class SaveManager {
 	string getFileNameFromPath(const string& path);
 	vector<string> getSaveFiles(const char* ending = ".sl2");
 	
-	void backup(const time_t curTime);
 	void removeOldBackups();
 
 	time_t getLastBackupTime();
@@ -35,5 +34,6 @@ public:
 
 	void init();
 	void tick();
+	void backup(const time_t curTime);
 };
 

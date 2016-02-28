@@ -10,6 +10,7 @@ using namespace std;
 #include "WindowManager.h"
 #include "Settings.h"
 #include "RenderstateManager.h"
+#include "SaveManager.h"
 
 KeyActions KeyActions::instance;
 

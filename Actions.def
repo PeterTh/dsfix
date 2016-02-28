@@ -37,4 +37,4 @@ ACTION(reloadHUDVertices, RSManager::get().reloadHudVertices());
 
 ACTION(togglePaused, RSManager::get().togglePaused());
 
-ACTION(manualBackup, SaveManager::get().backup(time(NULL)););
+ACTION(manualBackup, SaveManager::get().backup(););

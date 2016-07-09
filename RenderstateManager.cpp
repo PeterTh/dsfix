@@ -870,6 +870,6 @@ void RSManager::frameTimeManagement() {
 			SwitchToThread();
 			renderTime = getElapsedTime() - lastPresentTime;
 		}
-		lastPresentTime = getElapsedTime();
 	}
+	lastPresentTime = getElapsedTime();
 }

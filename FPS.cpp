@@ -187,11 +187,6 @@ void applyFPSPatch() {
 		return;
 	}
 
-	// Init counter for frame-rate calculations
-	lastRenderTime = 0.0f;
-	QueryPerformanceFrequency(&timerFreq);
-	QueryPerformanceCounter(&counterAtStart);
-
 	// Binary patches
 	//--------------------------------------------------------------
 	DWORD address;
@@ -207,4 +202,11 @@ void applyFPSPatch() {
 	DetourApply((BYTE*)address, (BYTE*)getDrawThreadMsgCommand, 5, CALLOP);
 		
 	SDLOG(0, "FPS unlocked\n");
+}
+
+void initFPSTimer() {
+	// Init counter for frame-rate calculations
+	lastRenderTime = 0.0f;
+	QueryPerformanceFrequency(&timerFreq);
+	QueryPerformanceCounter(&counterAtStart);
 }

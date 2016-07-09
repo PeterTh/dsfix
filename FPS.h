@@ -3,6 +3,7 @@
 
 #pragma once
 
+void initFPSTimer();
 void applyFPSPatch();
 
 // returns time since startup in milliseconds

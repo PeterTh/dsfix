@@ -31,7 +31,7 @@ BOOL WINAPI DetouredQueryPerformanceCounter(_Out_ LARGE_INTEGER *lpPerformanceCo
 	int captured = CaptureStackBackTrace(0, 128, traces, &hash);
 	SDLOG(14, "T %6lu: Detouring: QueryPerformanceCounter, stack depth %3d, hash %20ul\n", GetCurrentThreadId(), captured, hash);
 	BOOL ret = TrueQueryPerformanceCounter(lpPerformanceCount);
-	if(timingIntroMode && captured == 1) {
+	if(timingIntroMode && captured < 3) {
 		perfCountIncrease.QuadPart += countsPerSec.QuadPart/50;
 	}
 	lpPerformanceCount->QuadPart += perfCountIncrease.QuadPart;

@@ -572,6 +572,35 @@ HRESULT APIENTRY hkIDirect3DDevice9::SetPixelShaderConstantB(UINT StartRegister,
 }
 
 HRESULT APIENTRY hkIDirect3DDevice9::SetPixelShaderConstantF(UINT StartRegister,CONST float* pConstantData,UINT Vector4fCount) {
+	static const UINT HALF_RESOLUTION_REGISTER = 164;
+	static const float HALF_X_RESOLUTION = 512;
+	static const float HALF_Y_RESOLUTION = 360;
+	static const float RECIPROCAL_HALF_X_RESOLUTION = 1 / HALF_X_RESOLUTION;
+	static const float RECIPROCAL_HALF_Y_RESOLUTION = 1 / HALF_Y_RESOLUTION;
+
+	if (StartRegister <= HALF_RESOLUTION_REGISTER && HALF_RESOLUTION_REGISTER < StartRegister + Vector4fCount) {
+		SDLOG(2, "Updating pixel shader constant register c%d\n", HALF_RESOLUTION_REGISTER);
+		size_t offset = (HALF_RESOLUTION_REGISTER - StartRegister) * 4;
+		if (pConstantData[offset] == HALF_X_RESOLUTION &&
+			pConstantData[offset + 1] == HALF_Y_RESOLUTION &&
+			pConstantData[offset + 2] == RECIPROCAL_HALF_X_RESOLUTION &&
+			pConstantData[offset + 3] == RECIPROCAL_HALF_Y_RESOLUTION) {
+
+			SDLOG(2, "Fixing half resolution register\n");
+			size_t bufferSize = sizeof(float) * 4 * Vector4fCount;
+			float* pBuffer = static_cast<float*>(alloca(bufferSize));
+			memcpy_s(pBuffer, bufferSize, pConstantData, bufferSize);
+			float halfWidth = Settings::get().getRenderWidth() / 2.f;
+			float halfHeight = Settings::get().getRenderHeight() / 2.f;
+			pBuffer[offset] = halfWidth;
+			pBuffer[offset + 1] = halfHeight;
+			pBuffer[offset + 2] = 1 / halfWidth;
+			pBuffer[offset + 3] = 1 / halfHeight;
+
+			return m_pD3Ddev->SetPixelShaderConstantF(StartRegister, pBuffer, Vector4fCount);
+		}
+	}
+
 	return m_pD3Ddev->SetPixelShaderConstantF(StartRegister,pConstantData,Vector4fCount);
 }
 

@@ -182,14 +182,7 @@ HRESULT APIENTRY hkIDirect3DDevice9::CreateOffscreenPlainSurface(UINT Width, UIN
 }
 
 HRESULT APIENTRY hkIDirect3DDevice9::CreatePixelShader(CONST DWORD* pFunction,IDirect3DPixelShader9** ppShader) {
-	HRESULT res = m_pD3Ddev->CreatePixelShader(pFunction, ppShader);
-	if(Settings::get().getLogLevel() > 12) {
-		SDLOG(12, "CreatePixelShader data: %p : shader: %p\n", pFunction, *ppShader);
-		LPD3DXBUFFER buffer;
-		D3DXDisassembleShader(pFunction, false, NULL, &buffer);
-		SDLOG(12, "===== disassembly:\n%s\n==============\n", buffer->GetBufferPointer());
-	}
-	return res;
+	return RSManager::get().redirectCreatePixelShader(pFunction, ppShader);
 }
 
 HRESULT APIENTRY hkIDirect3DDevice9::CreateQuery(D3DQUERYTYPE Type,IDirect3DQuery9** ppQuery) {

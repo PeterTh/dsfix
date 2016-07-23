@@ -253,14 +253,7 @@ HRESULT APIENTRY hkIDirect3DDevice9::CreateVertexDeclaration(CONST D3DVERTEXELEM
 }
 
 HRESULT APIENTRY hkIDirect3DDevice9::CreateVertexShader(CONST DWORD* pFunction,IDirect3DVertexShader9** ppShader) {
-	HRESULT res = m_pD3Ddev->CreateVertexShader(pFunction, ppShader);
-	if(Settings::get().getLogLevel() > 12) {
-		SDLOG(12, "CreateVertexShader data: %p : shader: %p\n", pFunction, *ppShader);
-		LPD3DXBUFFER buffer;
-		D3DXDisassembleShader(pFunction, false, NULL, &buffer);
-		SDLOG(12, "===== disassembly:\n%s\n==============\n", buffer->GetBufferPointer());
-	}
-	return res;
+	return RSManager::get().redirectCreateVertexShader(pFunction, ppShader);
 }
 
 HRESULT APIENTRY hkIDirect3DDevice9::CreateVolumeTexture(UINT Width,UINT Height,UINT Depth,UINT Levels,DWORD Usage,D3DFORMAT Format,D3DPOOL Pool,IDirect3DVolumeTexture9** ppVolumeTexture,HANDLE* pSharedHandle) {

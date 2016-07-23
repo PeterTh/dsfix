@@ -113,9 +113,9 @@ class RSManager {
     
     std::map<UINT32, MemData> cachedTexFiles;
 
-	bool disassemblePixelShader(CONST DWORD *pFunction, LPD3DXBUFFER *ppBuffer);
-	void dumpPixelShader(UINT32 hash, LPD3DXBUFFER pBuffer);
-	bool getOverridePixelShader(UINT32 hash, LPD3DXBUFFER *ppBuffer);
+	bool disassembleShader(CONST DWORD *pFunction, LPD3DXBUFFER *ppBuffer);
+	void dumpShader(UINT32 hash, const char *directory, LPD3DXBUFFER pBuffer);
+	bool getOverrideShader(UINT32 hash, const char *directory, LPD3DXBUFFER *ppBuffer);
 
 private:
     ~RSManager();
@@ -194,4 +194,5 @@ public:
 	HRESULT redirectSetTextureStageState(DWORD Stage, D3DTEXTURESTAGESTATETYPE Type, DWORD Value);
 	HRESULT redirectSetRenderState(D3DRENDERSTATETYPE State, DWORD Value);
 	HRESULT redirectCreatePixelShader(CONST DWORD *pfunction, IDirect3DPixelShader9 **ppShader);
+	HRESULT redirectCreateVertexShader(CONST DWORD *pfunction, IDirect3DVertexShader9 **ppShader);
 };

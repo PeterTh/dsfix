@@ -79,7 +79,7 @@ bool WINAPI DllMain(HMODULE hDll, DWORD dwReason, PVOID pvReserved) {
     return false;
 }
 
-char *GetDirectoryFile(char *filename) {
+char *GetDirectoryFile(const char *filename) {
 	static char path[320];
 	strcpy_s(path, dlldir);
 	strcat_s(path, filename);
@@ -134,6 +134,14 @@ void errorExit(LPTSTR lpszFunction) {
 
 bool fileExists(const char *filename) {
   return std::ifstream(filename).good();
+}
+
+void createDirectory(const char *fileName) {
+	CreateDirectory(GetDirectoryFile(fileName), nullptr);
+	DWORD error = GetLastError();
+	if (error && error != ERROR_ALREADY_EXISTS) {
+		SDLOG(0, "Failed to create %s: %s\n", fileName, formatMessage(error));
+	}
 }
 
 bool writeFile(const char *filename, const char *data, size_t length) {

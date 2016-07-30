@@ -590,12 +590,14 @@ HRESULT APIENTRY hkIDirect3DDevice9::SetPixelShaderConstantF(UINT StartRegister,
 			size_t bufferSize = sizeof(float) * 4 * Vector4fCount;
 			float* pBuffer = static_cast<float*>(alloca(bufferSize));
 			memcpy_s(pBuffer, bufferSize, pConstantData, bufferSize);
-			float halfWidth = Settings::get().getRenderWidth() / 2.f;
-			float halfHeight = Settings::get().getRenderHeight() / 2.f;
-			pBuffer[offset] = halfWidth;
-			pBuffer[offset + 1] = halfHeight;
-			pBuffer[offset + 2] = 1 / halfWidth;
-			pBuffer[offset + 3] = 1 / halfHeight;
+
+			UINT width;
+			UINT height;
+			getDofRes(HALF_X_RESOLUTION, HALF_Y_RESOLUTION, width, height);
+			pBuffer[offset] = static_cast<float>(width);
+			pBuffer[offset + 1] = static_cast<float>(height);
+			pBuffer[offset + 2] = 1.f / width;
+			pBuffer[offset + 3] = 1.f / height;
 
 			return m_pD3Ddev->SetPixelShaderConstantF(StartRegister, pBuffer, Vector4fCount);
 		}

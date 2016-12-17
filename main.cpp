@@ -66,6 +66,7 @@ bool WINAPI DllMain(HMODULE hDll, DWORD dwReason, PVOID pvReserved) {
 
 		earlyDetour();
 
+		initFPSTimer();
 		if(Settings::get().getUnlockFPS()) applyFPSPatch();
 
 		return true;

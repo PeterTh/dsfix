@@ -15,6 +15,11 @@
 
 RSManager RSManager::instance;
 
+static const char *PIXEL_SHADER_DUMP_DIR = "dsfix/pixelshader_dump";
+static const char *PIXEL_SHADER_OVERRIDE_DIR = "dsfix/pixelshader_override";
+static const char *VERTEX_SHADER_DUMP_DIR = "dsfix/vertexshader_dump";
+static const char *VERTEX_SHADER_OVERRIDE_DIR = "dsfix/vertexshader_override";
+
 void RSManager::initResources() {
 	SDLOG(0, "RenderstateManager resource initialization started\n");
 	unsigned rw = Settings::get().getRenderWidth(), rh = Settings::get().getRenderHeight();
@@ -36,6 +41,12 @@ void RSManager::initResources() {
 	d3ddev->CreateStateBlock(D3DSBT_ALL, &prevStateBlock);
     if (Settings::get().getEnableTextureOverride() && Settings::get().getEnableTexturePrefetch())
         prefetchTextures();
+
+	if (Settings::get().getEnableShaderDumping()) {
+		createDirectory(PIXEL_SHADER_DUMP_DIR);
+		createDirectory(VERTEX_SHADER_DUMP_DIR);
+	}
+
 	SDLOG(0, "RenderstateManager resource initialization completed\n");
 	if(!inited) startDetour(); // on first init only
 	inited = true;
@@ -853,6 +864,118 @@ HRESULT RSManager::redirectSetRenderState(D3DRENDERSTATETYPE State, DWORD Value)
 	//	SDLOG(3, "SetRenderState suppressed: %u  -  %u\n", State, Value);
 	//}
 	//return D3D_OK;
+}
+
+HRESULT RSManager::redirectCreatePixelShader(CONST DWORD* pFunction, IDirect3DPixelShader9** ppShader)
+{
+	bool shouldDump = Settings::get().getEnableShaderDumping();
+	bool shouldOverride = Settings::get().getEnableShaderOverride();
+	LPD3DXBUFFER pAssemblerBuffer = nullptr;
+	LPD3DXBUFFER pFunctionBuffer = nullptr;
+	UINT32 hash;
+
+	if (shouldDump || shouldOverride) {
+		if (disassembleShader(pFunction, &pAssemblerBuffer)) {
+			hash = SuperFastHash(static_cast<char *>(pAssemblerBuffer->GetBufferPointer()), pAssemblerBuffer->GetBufferSize());
+		}
+		else {
+			shouldDump = false;
+			shouldOverride = false;
+		}
+	}
+
+	if (shouldDump) {
+		dumpShader(hash, PIXEL_SHADER_DUMP_DIR, pAssemblerBuffer);
+	}
+
+	if (shouldOverride) {
+		if (getOverrideShader(hash, PIXEL_SHADER_OVERRIDE_DIR, &pFunctionBuffer)) {
+			pFunction = static_cast<DWORD *>(pFunctionBuffer->GetBufferPointer());
+		}
+	}
+
+	HRESULT result = d3ddev->CreatePixelShader(pFunction, ppShader);
+	if (shouldDump || shouldOverride) {
+		SDLOG(1, "Created pixel shader for hash %08x: 0x%p\n", hash, *ppShader);
+	}
+	SAFERELEASE(pAssemblerBuffer);
+	SAFERELEASE(pFunctionBuffer);
+	return result;
+}
+
+HRESULT RSManager::redirectCreateVertexShader(CONST DWORD* pFunction, IDirect3DVertexShader9** ppShader)
+{
+	bool shouldDump = Settings::get().getEnableShaderDumping();
+	bool shouldOverride = Settings::get().getEnableShaderOverride();
+	LPD3DXBUFFER pAssemblerBuffer = nullptr;
+	LPD3DXBUFFER pFunctionBuffer = nullptr;
+	UINT32 hash;
+
+	if (shouldDump || shouldOverride) {
+		if (disassembleShader(pFunction, &pAssemblerBuffer)) {
+			hash = SuperFastHash(static_cast<char *>(pAssemblerBuffer->GetBufferPointer()), pAssemblerBuffer->GetBufferSize());
+		}
+		else {
+			shouldDump = false;
+			shouldOverride = false;
+		}
+	}
+
+	if (shouldDump) {
+		dumpShader(hash, VERTEX_SHADER_DUMP_DIR, pAssemblerBuffer);
+	}
+
+	if (shouldOverride) {
+		if (getOverrideShader(hash, VERTEX_SHADER_OVERRIDE_DIR, &pFunctionBuffer)) {
+			pFunction = static_cast<DWORD *>(pFunctionBuffer->GetBufferPointer());
+		}
+	}
+
+	HRESULT result = d3ddev->CreateVertexShader(pFunction, ppShader);
+	if (shouldDump || shouldOverride) {
+		SDLOG(1, "Created vertex shader for hash %08x: 0x%p\n", hash, *ppShader);
+	}
+	SAFERELEASE(pAssemblerBuffer);
+	SAFERELEASE(pFunctionBuffer);
+	return result;
+}
+
+bool RSManager::disassembleShader(CONST DWORD *pFunction, LPD3DXBUFFER *ppBuffer) {
+	LPD3DXBUFFER buffer = nullptr;
+	HRESULT result = D3DXDisassembleShader(pFunction, false, NULL, ppBuffer);
+	if (result != D3D_OK) {
+		SDLOG(0, "Failed to disassemble shader\n");
+	}
+	return result == D3D_OK;
+}
+
+void RSManager::dumpShader(UINT32 hash, const char *directory, LPD3DXBUFFER pBuffer) {
+	char fileNameBuffer[64];
+	sprintf_s(fileNameBuffer, "%s/%08x.asm", directory, hash);
+	const char *fileName = GetDirectoryFile(fileNameBuffer);
+	if (writeFile(fileName, static_cast<char *>(pBuffer->GetBufferPointer()), pBuffer->GetBufferSize() - 1)) {
+		SDLOG(0, "Wrote disassembled shader to %s\n", fileNameBuffer);
+	}
+	else {
+		SDLOG(0, "Failed to write disassembled shader to %s\n", fileNameBuffer);
+	}
+}
+
+bool RSManager::getOverrideShader(UINT32 hash, const char *directory, LPD3DXBUFFER *ppBuffer) {
+	char fileNameBuffer[64];
+	sprintf_s(fileNameBuffer, "%s/%08x.asm", directory, hash);
+	const char * fileName = GetDirectoryFile(fileNameBuffer);
+	if (fileExists(fileName)) {
+		SDLOG(1, "Shader override: %s\n", fileName);
+		LPD3DXBUFFER errors = nullptr;
+		HRESULT assembleResult = D3DXAssembleShaderFromFile(fileName, nullptr, nullptr, 0, ppBuffer, &errors);
+		if (assembleResult != D3D_OK) {
+			SDLOG(0, "Failed to assemble replacement shader:\n%s\n", errors->GetBufferPointer());
+		}
+		SAFERELEASE(errors);
+		return assembleResult == D3D_OK;
+	}
+	return false;
 }
 
 void RSManager::frameTimeManagement() {

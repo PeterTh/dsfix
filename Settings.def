@@ -52,6 +52,10 @@ SETTING(bool, EnableTextureDumping, "enableTextureDumping", false);
 SETTING(bool, EnableTextureOverride, "enableTextureOverride", false);
 SETTING(bool, EnableTexturePrefetch, "enableTexturePrefetch", false);
 
+// Shader Override Options
+SETTING(bool, EnableShaderDumping, "enableShaderDumping", false);
+SETTING(bool, EnableShaderOverride, "enableShaderOverride", false);
+
 // HUD options
 SETTING(bool, EnableHudMod, "enableHudMod", false)
 SETTING(bool, EnableMinimalHud, "enableMinimalHud", false)

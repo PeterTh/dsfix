@@ -113,6 +113,10 @@ class RSManager {
     
     std::map<UINT32, MemData> cachedTexFiles;
 
+	bool disassembleShader(CONST DWORD *pFunction, LPD3DXBUFFER *ppBuffer);
+	void dumpShader(UINT32 hash, const char *directory, LPD3DXBUFFER pBuffer);
+	bool getOverrideShader(UINT32 hash, const char *directory, LPD3DXBUFFER *ppBuffer);
+
 private:
     ~RSManager();
 
@@ -189,4 +193,6 @@ public:
 	HRESULT redirectD3DXCreateTextureFromFileInMemoryEx(LPDIRECT3DDEVICE9 pDevice, LPCVOID pSrcData, UINT SrcDataSize, UINT Width, UINT Height, UINT MipLevels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, DWORD Filter, DWORD MipFilter, D3DCOLOR ColorKey, D3DXIMAGE_INFO* pSrcInfo, PALETTEENTRY* pPalette, LPDIRECT3DTEXTURE9* ppTexture);
 	HRESULT redirectSetTextureStageState(DWORD Stage, D3DTEXTURESTAGESTATETYPE Type, DWORD Value);
 	HRESULT redirectSetRenderState(D3DRENDERSTATETYPE State, DWORD Value);
+	HRESULT redirectCreatePixelShader(CONST DWORD *pfunction, IDirect3DPixelShader9 **ppShader);
+	HRESULT redirectCreateVertexShader(CONST DWORD *pfunction, IDirect3DVertexShader9 **ppShader);
 };

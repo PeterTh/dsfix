@@ -34,9 +34,14 @@
 
 #include "d3d9.h"
 #include "dinput.h"
+#include <string>
 
-char *GetDirectoryFile(char *filename);
+char *GetDirectoryFile(const char *filename);
 bool fileExists(const char *filename);
+void createDirectory(const char *filename);
+bool writeFile(const char *filename, const char *data, size_t length);
+std::string formatMessage(DWORD messageId);
+std::string strError(int err);
 void __cdecl sdlogtime();
 void __cdecl sdlog(const char * fmt, ...);
 void errorExit(LPTSTR lpszFunction);

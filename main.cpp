@@ -80,7 +80,7 @@ bool WINAPI DllMain(HMODULE hDll, DWORD dwReason, PVOID pvReserved) {
     return false;
 }
 
-char *GetDirectoryFile(char *filename) {
+char *GetDirectoryFile(const char *filename) {
 	static char path[320];
 	strcpy_s(path, dlldir);
 	strcat_s(path, filename);
@@ -135,4 +135,46 @@ void errorExit(LPTSTR lpszFunction) {
 
 bool fileExists(const char *filename) {
   return std::ifstream(filename).good();
+}
+
+void createDirectory(const char *fileName) {
+	CreateDirectory(GetDirectoryFile(fileName), nullptr);
+	DWORD error = GetLastError();
+	if (error && error != ERROR_ALREADY_EXISTS) {
+		SDLOG(0, "Failed to create %s: %s\n", fileName, formatMessage(error));
+	}
+}
+
+bool writeFile(const char *filename, const char *data, size_t length) {
+	std::ofstream file(filename, std::ios::out | std::ios::binary);
+	if (!file) {
+		SDLOG(0, "Failed to open %s: %s\n", filename, strError(errno));
+		return false;
+	}
+	file.write(data, length);
+	if (!file) {
+		SDLOG(0, "Failed to write to %s: %s\n", filename, strError(errno));
+		return false;
+	}
+	file.close();
+	if (!file) {
+		SDLOG(0, "Failed to close %s: %s\n", filename, strError(errno));
+		return false;
+	}
+	return true;
+}
+
+std::string formatMessage(DWORD messageId) {
+	char *buffer = nullptr;
+	size_t length = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		nullptr, messageId, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&buffer, 0, nullptr);
+	std::string result(buffer, length);
+	LocalFree(buffer);
+	return result;
+}
+
+std::string strError(int err) {
+	std::string result(4096, '\0');
+	strerror_s(&result[0], result.length(), err);
+	return result;
 }

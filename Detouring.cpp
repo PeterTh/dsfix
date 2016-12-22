@@ -74,49 +74,68 @@ HRESULT WINAPI DetouredD3DXCompileShader(_In_ LPCSTR pSrcData, _In_ UINT srcData
 	return res;
 }
 
-void earlyDetour() {
-	QueryPerformanceFrequency(&countsPerSec);
-	DetourTransactionBegin();
-	DetourUpdateThread(GetCurrentThread());
-	DetourAttach(&(PVOID&)oDirect3DCreate9, hkDirect3DCreate9);
-	DetourTransactionCommit();
-}
-
-void startDetour() {		
-	DetourTransactionBegin();
-	DetourUpdateThread(GetCurrentThread());
-	//DetourAttach(&(PVOID&)TrueSleepEx, DetouredSleepEx);
-	//DetourAttach(&(PVOID&)TrueTimeGetTime, DetouredTimeGetTime);
-	if(Settings::get().getSkipIntro()) DetourAttach(&(PVOID&)TrueQueryPerformanceCounter, DetouredQueryPerformanceCounter);
-	//TrueD3DXCreateTexture = (D3DXCreateTexture_FNType)DetourFindFunction("d3dx9_43.dll", "D3DXCreateTexture");
-	TrueD3DXCreateTextureFromFileInMemory = (D3DXCreateTextureFromFileInMemory_FNType)DetourFindFunction("d3dx9_43.dll", "D3DXCreateTextureFromFileInMemory");
-	TrueD3DXCreateTextureFromFileInMemoryEx = (D3DXCreateTextureFromFileInMemoryEx_FNType)DetourFindFunction("d3dx9_43.dll", "D3DXCreateTextureFromFileInMemoryEx");
-	//DetourAttach(&(PVOID&)TrueD3DXCreateTexture, DetouredD3DXCreateTexture);
-	DetourAttach(&(PVOID&)TrueD3DXCreateTextureFromFileInMemory, DetouredD3DXCreateTextureFromFileInMemory);
-	DetourAttach(&(PVOID&)TrueD3DXCreateTextureFromFileInMemoryEx, DetouredD3DXCreateTextureFromFileInMemoryEx);
-	//TrueD3DXCompileShader = (D3DXCompileShader_FNType)DetourFindFunction("d3dx9_43.dll", "D3DXCompileShader");
-	//SDLOG(0, "Detouring: compile shader: %p\n", TrueD3DXCompileShader);
-	//DetourAttach(&(PVOID&)TrueD3DXCompileShader, DetouredD3DXCompileShader);
-
-	if(DetourTransactionCommit() == NO_ERROR) {
-		SDLOG(0, "Detouring: Detoured successfully\n");
-	} else {
-		SDLOG(0, "Detouring: Error detouring\n");
+void hookFunction(const char* name, const char* dllname, void** ppTarget, void* const pDetour, void** ppOriginal) {
+	HMODULE dllHandle = GetModuleHandle(dllname);
+	*ppTarget = GetProcAddress(dllHandle, name);
+	MH_STATUS ret = MH_CreateHook(*ppTarget, pDetour, ppOriginal);
+	if (ret == MH_OK) {
+		SDLOG(2, "MH_CreateHook for %s in %s succeeded\n", name, dllname);
+	}
+	else {
+		SDLOG(0, "MH_CreateHook for %s in %s failed\n", name, dllname);
+		SDLOG(0, "dllHandle = %p\n", dllHandle);
+		SDLOG(0, "*ppTarget = %p\n", *ppTarget);
+	}
+	ret = MH_EnableHook(*ppTarget);
+	if (ret == MH_OK) {
+		SDLOG(2, "MH_EnableHook succeeded\n");
+	}
+	else {
+		SDLOG(0, "MH_EnableHook failed\n");
 	}
 }
 
+namespace {
+	void* TargetDirect3DCreate9;
+	void* TargetQueryPerformanceCounter;
+	void* TargetD3DXCreateTextureFromFileInMemory;
+	void* TargetD3DXCreateTextureFromFileInMemoryEx;
+}
+
+void earlyDetour() {
+	QueryPerformanceFrequency(&countsPerSec);
+	MH_Initialize();
+	hookFunction("Direct3DCreate9",
+		"d3d9.dll",
+		&TargetDirect3DCreate9,
+		&hkDirect3DCreate9,
+		reinterpret_cast<void**>(&oDirect3DCreate9));
+}
+
+void startDetour() {
+	if (Settings::get().getSkipIntro()) {
+		hookFunction("QueryPerformanceCounter",
+			"kernel32.dll",
+			&TargetQueryPerformanceCounter,
+			&DetouredQueryPerformanceCounter,
+			reinterpret_cast<void**>(&TrueQueryPerformanceCounter));
+	}
+	hookFunction("D3DXCreateTextureFromFileInMemory",
+		"d3dx9_43.dll",
+		&TargetD3DXCreateTextureFromFileInMemory,
+		&DetouredD3DXCreateTextureFromFileInMemory,
+		reinterpret_cast<void**>(&TrueD3DXCreateTextureFromFileInMemory));
+	hookFunction("D3DXCreateTextureFromFileInMemoryEx",
+		"d3dx9_43.dll",
+		&TargetD3DXCreateTextureFromFileInMemoryEx,
+		&DetouredD3DXCreateTextureFromFileInMemoryEx,
+		reinterpret_cast<void**>(&TrueD3DXCreateTextureFromFileInMemoryEx));
+}
+
 void endDetour() {
-	//if(Settings::get().getSkipIntro()) {
-		DetourTransactionBegin();
-		DetourUpdateThread(GetCurrentThread());
-		//DetourDetach(&(PVOID&)TrueSleepEx, DetouredSleepEx);
-		//DetourDetach(&(PVOID&)TrueTimeGetTime, DetouredTimeGetTime);
-		if(Settings::get().getSkipIntro()) DetourDetach(&(PVOID&)TrueQueryPerformanceCounter, DetouredQueryPerformanceCounter);
-		//DetourDetach(&(PVOID&)TrueD3DXCreateTexture, DetouredD3DXCreateTexture);
-		DetourDetach(&(PVOID&)TrueD3DXCreateTextureFromFileInMemory, DetouredD3DXCreateTextureFromFileInMemory);
-		DetourDetach(&(PVOID&)TrueD3DXCreateTextureFromFileInMemoryEx, DetouredD3DXCreateTextureFromFileInMemoryEx);
-		DetourDetach(&(PVOID&)oDirect3DCreate9, hkDirect3DCreate9);
-		//DetourDetach(&(PVOID&)TrueD3DXCompileShader, DetouredD3DXCompileShader);
-		DetourTransactionCommit();
-	//}
+	MH_RemoveHook(TargetDirect3DCreate9);
+	MH_RemoveHook(TargetQueryPerformanceCounter);
+	MH_RemoveHook(TargetD3DXCreateTextureFromFileInMemory);
+	MH_RemoveHook(TargetD3DXCreateTextureFromFileInMemoryEx);
+	MH_Uninitialize();
 }

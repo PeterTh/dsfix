@@ -39,16 +39,20 @@ void RSManager::initResources() {
 	rgbaBuffer1Tex->GetSurfaceLevel(0, &rgbaBuffer1Surf);
 	d3ddev->CreateDepthStencilSurface(rw, rh, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, false, &depthStencilSurf, NULL);
 	d3ddev->CreateStateBlock(D3DSBT_ALL, &prevStateBlock);
-    if (Settings::get().getEnableTextureOverride() && Settings::get().getEnableTexturePrefetch())
-        prefetchTextures();
 
-	if (Settings::get().getEnableShaderDumping()) {
-		createDirectory(PIXEL_SHADER_DUMP_DIR);
-		createDirectory(VERTEX_SHADER_DUMP_DIR);
+	if (!inited) { // on first init only
+		startDetour();
+
+		if (Settings::get().getEnableTextureOverride() && Settings::get().getEnableTexturePrefetch()) {
+			prefetchTextures();
+		}
+
+		if (Settings::get().getEnableShaderDumping()) {
+			createDirectory(PIXEL_SHADER_DUMP_DIR);
+			createDirectory(VERTEX_SHADER_DUMP_DIR);
+		}
 	}
-
 	SDLOG(0, "RenderstateManager resource initialization completed\n");
-	if(!inited) startDetour(); // on first init only
 	inited = true;
 }
 

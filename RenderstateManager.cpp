@@ -15,15 +15,26 @@
 
 RSManager RSManager::instance;
 
-static const char *PIXEL_SHADER_DUMP_DIR = "dsfix/pixelshader_dump";
-static const char *PIXEL_SHADER_OVERRIDE_DIR = "dsfix/pixelshader_override";
-static const char *VERTEX_SHADER_DUMP_DIR = "dsfix/vertexshader_dump";
-static const char *VERTEX_SHADER_OVERRIDE_DIR = "dsfix/vertexshader_override";
+namespace {
+	const char *PIXEL_SHADER_DUMP_DIR = "dsfix/pixelshader_dump";
+	const char *PIXEL_SHADER_OVERRIDE_DIR = "dsfix/pixelshader_override";
+	const char *VERTEX_SHADER_DUMP_DIR = "dsfix/vertexshader_dump";
+	const char *VERTEX_SHADER_OVERRIDE_DIR = "dsfix/vertexshader_override";
+
+	unsigned getDOFResolution() {
+		unsigned setting = Settings::get().getDOFOverrideResolution();
+		if (setting == 0) {
+			return 360;
+		} else {
+			return setting;
+		}
+	}
+}
 
 void RSManager::initResources() {
 	SDLOG(0, "RenderstateManager resource initialization started\n");
 	unsigned rw = Settings::get().getRenderWidth(), rh = Settings::get().getRenderHeight();
-	unsigned dofRes = Settings::get().getDOFOverrideResolution();
+	unsigned dofRes = getDOFResolution();
 	if(Settings::get().getAAQuality()) {
 		if(Settings::get().getAAType() == "SMAA") {
 			smaa = new SMAA(d3ddev, rw, rh, (SMAA::Preset)(Settings::get().getAAQuality()-1));
@@ -581,7 +592,7 @@ void RSManager::reloadScao() {
 
 void RSManager::reloadGauss() {
 	SAFEDELETE(gauss); 
-	gauss = new GAUSS(d3ddev, Settings::get().getDOFOverrideResolution()*16/9, Settings::get().getDOFOverrideResolution());
+	gauss = new GAUSS(d3ddev, getDOFResolution()*16/9, getDOFResolution());
 	SDLOG(0, "Reloaded GAUSS\n");
 }
 
@@ -754,7 +765,7 @@ bool RSManager::isTextureText(IDirect3DBaseTexture9* t) {
 }
 
 unsigned RSManager::isDof(unsigned width, unsigned height) {
-	unsigned topWidth = Settings::get().getDOFOverrideResolution()*16/9, topHeight = Settings::get().getDOFOverrideResolution();
+	unsigned topWidth = getDOFResolution()*16/9, topHeight = getDOFResolution();
 	if(width == topWidth && height == topHeight) return 1;
 	if(width == topWidth/2 && height == topHeight/2) return 2;
 	return 0;

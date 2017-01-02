@@ -251,6 +251,7 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="d3d9query.cpp" />
     <ClCompile Include="d3dutil.cpp" />
     <ClCompile Include="Detouring.cpp" />
     <ClCompile Include="dinputWrapper.cpp" />
@@ -313,6 +314,7 @@
   <ItemGroup>
     <ClInclude Include="AreaTex.h" />
     <ClInclude Include="d3d9.h" />
+    <ClInclude Include="d3d9query.h" />
     <ClInclude Include="d3dutil.h" />
     <ClInclude Include="Detouring.h" />
     <ClInclude Include="dinput.h" />

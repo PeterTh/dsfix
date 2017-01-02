@@ -34,6 +34,7 @@ namespace {
 void RSManager::initResources() {
 	SDLOG(0, "RenderstateManager resource initialization started\n");
 	unsigned rw = Settings::get().getRenderWidth(), rh = Settings::get().getRenderHeight();
+	areaScale = rw * rh / 1024.0 / 576.0;
 	unsigned dofRes = getDOFResolution();
 	if(Settings::get().getAAQuality()) {
 		if(Settings::get().getAAType() == "SMAA") {

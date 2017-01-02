@@ -9,5 +9,6 @@
 #include <d3dx9.h>
 #include "d3d9int.h"
 #include "d3d9dev.h"
+#include "d3d9query.h"
 
 IDirect3D9 *APIENTRY hkDirect3DCreate9(UINT SDKVersion);

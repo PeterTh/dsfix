@@ -38,9 +38,9 @@ HRESULT APIENTRY hkIDirect3DQuery9::Issue(DWORD dwIssueFlags) {
 
 HRESULT APIENTRY hkIDirect3DQuery9::GetData(void* pData, DWORD dwSize, DWORD dwGetDataFlags) {
 	auto result = m_pD3Dquery->GetData(pData, dwSize, dwGetDataFlags);
-	if (result == D3D_OK) {
+	if (SUCCEEDED(result)) {
 		auto pixelsDrawn = reinterpret_cast<DWORD*>(pData);
-		pixelsDrawn[0] = static_cast<DWORD>(pixelsDrawn[0] / RSManager::get().getAreaScale());
+		pixelsDrawn[0] = static_cast<DWORD>(pixelsDrawn[0] / RSManager::get().getOcclusionScale());
 	}
 	return result;
 }

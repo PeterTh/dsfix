@@ -1,5 +1,6 @@
 #include "RenderstateManager.h"
 
+#include <atlbase.h>
 #include <time.h>
 #include <intsafe.h>
 #include <io.h>
@@ -15,15 +16,28 @@
 
 RSManager RSManager::instance;
 
-static const char *PIXEL_SHADER_DUMP_DIR = "dsfix/pixelshader_dump";
-static const char *PIXEL_SHADER_OVERRIDE_DIR = "dsfix/pixelshader_override";
-static const char *VERTEX_SHADER_DUMP_DIR = "dsfix/vertexshader_dump";
-static const char *VERTEX_SHADER_OVERRIDE_DIR = "dsfix/vertexshader_override";
+namespace {
+	const char *PIXEL_SHADER_DUMP_DIR = "dsfix/pixelshader_dump";
+	const char *PIXEL_SHADER_OVERRIDE_DIR = "dsfix/pixelshader_override";
+	const char *VERTEX_SHADER_DUMP_DIR = "dsfix/vertexshader_dump";
+	const char *VERTEX_SHADER_OVERRIDE_DIR = "dsfix/vertexshader_override";
+
+	unsigned getDOFResolution() {
+		unsigned setting = Settings::get().getDOFOverrideResolution();
+		if (setting == 0) {
+			return 360;
+		} else {
+			return setting;
+		}
+	}
+}
 
 void RSManager::initResources() {
 	SDLOG(0, "RenderstateManager resource initialization started\n");
 	unsigned rw = Settings::get().getRenderWidth(), rh = Settings::get().getRenderHeight();
-	unsigned dofRes = Settings::get().getDOFOverrideResolution();
+	haveOcclusionScale = false;
+	occlusionScale = 1;
+	unsigned dofRes = getDOFResolution();
 	if(Settings::get().getAAQuality()) {
 		if(Settings::get().getAAType() == "SMAA") {
 			smaa = new SMAA(d3ddev, rw, rh, (SMAA::Preset)(Settings::get().getAAQuality()-1));
@@ -278,6 +292,9 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 		// store it for later use
 		mainRT = pRenderTarget;
 		SDLOG(0, "Storing RT as main RT: %p\n", mainRT);
+		if (!haveOcclusionScale) {
+			measureOcclusionScale();
+		}
 	}
 
 	if(nrts == 11) { // we are switching to the RT used to store the Z value in the 24 RGB bits (among other things)
@@ -428,6 +445,147 @@ HRESULT RSManager::redirectSetRenderTarget(DWORD RenderTargetIndex, IDirect3DSur
 	if(rddp < 4 || rddp > 8) rddp = 0;
 	else rddp++;
 	return d3ddev->SetRenderTarget(RenderTargetIndex, pRenderTarget);
+}
+
+// Measure the occlusion query result of drawing a square of a known
+// size.
+//
+// The result is affected by the rendering resolution which is
+// known, but might also be affected by driver-enforced antialiasing.
+// This result is used to scale the result of further occlusion
+// queries into the expected range of values.
+void RSManager::measureOcclusionScale() {
+	static const D3DVERTEXELEMENT9 vertexElements[2] = {
+		{ 0, 0,  D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+		D3DDECL_END()
+	};
+	CComPtr<IDirect3DVertexDeclaration9> vertexDeclaration;
+	CComPtr<ID3DXBuffer> errorBuffer;
+	static const char vertexShaderSource[] = "vs_3_0 \n dcl_position v0 \n dcl_position o0 \n mov o0, v0";
+	CComPtr<ID3DXBuffer> vertexShaderBuffer;
+	CComPtr<IDirect3DVertexShader9> vertexShader;
+	static const char pixelShaderSource[] = "ps_3_0 \n def c0, 0, 0, 0, 0 \n mov_pp oC0, c0.x";
+	CComPtr<ID3DXBuffer> pixelShaderBuffer;
+	CComPtr<IDirect3DPixelShader9> pixelShader;
+	CComPtr<IDirect3DQuery9> query;
+	DWORD pixelsVisible = 0;
+	HRESULT hr;
+
+	haveOcclusionScale = true;
+
+	float width = 24.0 / 1024;
+	float height = 24.0 / 720;
+	const float vertexData[4][3] = {
+		{ -width, -height, 0.5 },
+		{  width, -height, 0.5 },
+		{  width,  height, 0.5 },
+		{ -width,  height, 0.5 },
+	};
+
+	if (FAILED(d3ddev->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1, 0))) {
+		SDLOG(0, "measureOcclusionScale: Clear failed\n");
+		return;
+	}
+
+	if (FAILED(d3ddev->SetRenderState(D3DRS_ZENABLE, D3DZB_TRUE))) {
+		SDLOG(0, "measureOcclusionScale: SetRenderState ZENABLE failed\n");
+		return;
+	}
+
+	if (FAILED(d3ddev->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL))) {
+		SDLOG(0, "measureOcclusionScale: SetRenderState ZFUNC failed\n");
+		return;
+	}
+
+	if (FAILED(d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE))) {
+		SDLOG(0, "measureOcclusionScale: SetRenderState CULLMODE failed\n");
+		return;
+	}
+
+	if (FAILED(d3ddev->CreateVertexDeclaration(vertexElements, &vertexDeclaration))) {
+		SDLOG(0, "measureOcclusionScale: CreateVertexDeclaration failed\n");
+		return;
+	}
+
+	if (FAILED(d3ddev->SetVertexDeclaration(vertexDeclaration))) {
+		SDLOG(0, "measureOcclusionScale: SetVertexDeclaration failed\n");
+		return;
+	}
+
+	if (FAILED(D3DXAssembleShader(vertexShaderSource, sizeof(vertexShaderSource), nullptr, nullptr, 0, &vertexShaderBuffer, &errorBuffer))) {
+		SDLOG(0, "measureOcclusionScale: D3DXAssembleShader failed:\n%s\n", errorBuffer->GetBufferPointer());
+		return;
+	}
+
+	if (FAILED(d3ddev->CreateVertexShader(reinterpret_cast<const DWORD*>(vertexShaderBuffer->GetBufferPointer()), &vertexShader))) {
+		SDLOG(0, "measureOcclusionScale: CreateVertexShader failed\n");
+		return;
+	}
+
+	if (FAILED(d3ddev->SetVertexShader(vertexShader))) {
+		SDLOG(0, "measureOcclusionScale: SetVertexShader failed\n");
+		return;
+	}
+
+	if (FAILED(D3DXAssembleShader(pixelShaderSource, sizeof(pixelShaderSource), nullptr, nullptr, 0, &pixelShaderBuffer, &errorBuffer))) {
+		SDLOG(0, "measureOcclusionScale: D3DXAssembleShader failed:\n%s\n", errorBuffer->GetBufferPointer());
+		return;
+	}
+
+	if (FAILED(d3ddev->CreatePixelShader(reinterpret_cast<const DWORD*>(pixelShaderBuffer->GetBufferPointer()), &pixelShader))) {
+		SDLOG(0, "measureOcclusionScale: CreatePixelShader failed\n");
+		return;
+	}
+
+	if (FAILED(d3ddev->SetPixelShader(pixelShader))) {
+		SDLOG(0, "measureOcclusionScale: SetPixelShader failed\n");
+		return;
+	}
+
+	if (FAILED(d3ddev->CreateQuery(D3DQUERYTYPE_OCCLUSION, &query))) {
+		SDLOG(0, "measureOcclusionScale: CreateQuery failed\n");
+		return;
+	}
+
+	if (FAILED(d3ddev->BeginScene())) {
+		SDLOG(0, "measureOcclusionScale: BeginScene failed\n");
+		return;
+	}
+
+	if (FAILED(query->Issue(D3DISSUE_BEGIN))) {
+		SDLOG(0, "measureOcclusionScale: Issue BEGIN failed\n");
+		return;
+	}
+
+	if (FAILED(d3ddev->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, vertexData, sizeof(vertexData[0])))) {
+		SDLOG(0, "measureOcclusionScale: DrawPrimitiveUP failed\n");
+		return;
+	}
+
+	if (FAILED(query->Issue(D3DISSUE_END))) {
+		SDLOG(0, "measureOcclusionScale: Issue END failed\n");
+		return;
+	}
+
+	while ((hr = query->GetData(&pixelsVisible, sizeof(pixelsVisible), D3DGETDATA_FLUSH)) == S_FALSE);
+	if (FAILED(hr)) {
+		SDLOG(0, "measureOcclusionScale: GetData failed\n");
+		return;
+	}
+
+	if (pixelsVisible == 0) {
+		occlusionScale = 1;
+	} else {
+		occlusionScale = pixelsVisible / 576.0;
+	}
+
+	SDLOG(2, "measureOcclusionScale: pixelsVisible = %d\n", pixelsVisible);
+	SDLOG(2, "measureOcclusionScale: occlusionScale = %f\n", occlusionScale);
+
+	if (FAILED(d3ddev->EndScene())) {
+		SDLOG(0, "measureOcclusionScale: EndScene failed\n");
+		return;
+	}
 }
 
 HRESULT RSManager::redirectStretchRect(IDirect3DSurface9* pSourceSurface, CONST RECT* pSourceRect, IDirect3DSurface9* pDestSurface, CONST RECT* pDestRect, D3DTEXTUREFILTERTYPE Filter) {
@@ -581,7 +739,7 @@ void RSManager::reloadScao() {
 
 void RSManager::reloadGauss() {
 	SAFEDELETE(gauss); 
-	gauss = new GAUSS(d3ddev, Settings::get().getDOFOverrideResolution()*16/9, Settings::get().getDOFOverrideResolution());
+	gauss = new GAUSS(d3ddev, getDOFResolution()*16/9, getDOFResolution());
 	SDLOG(0, "Reloaded GAUSS\n");
 }
 
@@ -754,7 +912,7 @@ bool RSManager::isTextureText(IDirect3DBaseTexture9* t) {
 }
 
 unsigned RSManager::isDof(unsigned width, unsigned height) {
-	unsigned topWidth = Settings::get().getDOFOverrideResolution()*16/9, topHeight = Settings::get().getDOFOverrideResolution();
+	unsigned topWidth = getDOFResolution()*16/9, topHeight = getDOFResolution();
 	if(width == topWidth && height == topHeight) return 1;
 	if(width == topWidth/2 && height == topHeight/2) return 2;
 	return 0;

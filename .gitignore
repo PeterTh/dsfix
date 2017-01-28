@@ -1,4 +1,8 @@
 *.sdf
 *.user
 *.opensdf
+*.suo
 Release
+Debug/
+Release/
+.vs/

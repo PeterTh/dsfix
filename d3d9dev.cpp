@@ -579,7 +579,7 @@ HRESULT APIENTRY hkIDirect3DDevice9::SetPixelShaderConstantF(UINT StartRegister,
 
 			UINT width;
 			UINT height;
-			getDofRes(HALF_X_RESOLUTION, HALF_Y_RESOLUTION, width, height);
+			getDofRes(static_cast<UINT>(HALF_X_RESOLUTION), static_cast<UINT>(HALF_Y_RESOLUTION), width, height);
 			pBuffer[offset] = static_cast<float>(width);
 			pBuffer[offset + 1] = static_cast<float>(height);
 			pBuffer[offset + 2] = 1.f / width;

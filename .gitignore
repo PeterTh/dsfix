@@ -6,3 +6,5 @@ Release
 Debug/
 Release/
 .vs/
+*.VC.VC.opendb
+*.VC.db

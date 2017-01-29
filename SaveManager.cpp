@@ -26,7 +26,7 @@ void SaveManager::init() {
 		if(searchHandle != INVALID_HANDLE_VALUE) {
             do {
                 std::string fn = userSaveFolderData.cFileName;
-                bool dir = userSaveFolderData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+                bool dir = !!(userSaveFolderData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
                 bool saveFile = fn.substr(fn.find_last_of(".") + 1) == "sl2";
                 // newer versions don't contain an additional folder under NBGI\\DarkSouls
                 if (fn.size() > 2 && (dir || saveFile)) {
@@ -103,7 +103,7 @@ void SaveManager::backup(const time_t curTime) {
 	vector<string> saveFiles = getSaveFiles();
 	for(size_t i=0; i<saveFiles.size(); ++i) {
 		string fn = getFileNameFromPath(saveFiles[i]);
-		sprintf_s(buffer, "%s\\%0" TIMESTAMP_LENGTH_STR "lu_", userSaveFolder.c_str(), curTime);
+		sprintf_s(buffer, "%s\\%0" TIMESTAMP_LENGTH_STR "lu_", userSaveFolder.c_str(), static_cast<unsigned long>(curTime));
 		string newPath = string(buffer) + fn + ".bak";
 		if(CopyFile(saveFiles[i].c_str(), newPath.c_str(), false) == 0) {
 			SDLOG(0, "ERROR: SaveManager failed to back up file! (Copying %s to %s)\n", saveFiles[i].c_str(), buffer);

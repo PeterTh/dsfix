@@ -2,7 +2,8 @@
 
 #include "main.h"
 
-#include <detours.h>
+#include "minhook/MinHook.h"
+#pragma comment(lib, "minhook\\libMinhook.x86.lib")
 
 static DWORD (WINAPI * TrueSleepEx)(DWORD dwMilliseconds, BOOL bAlertable) = SleepEx;
 

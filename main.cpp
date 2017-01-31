@@ -81,7 +81,7 @@ bool WINAPI DllMain(HMODULE hDll, DWORD dwReason, PVOID pvReserved) {
 }
 
 char *GetDirectoryFile(const char *filename) {
-	thread_local static char path[320];
+	__declspec( thread ) static char path[320];
 	strcpy_s(path, dlldir);
 	strcat_s(path, filename);
 	return path;

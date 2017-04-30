@@ -36,3 +36,5 @@ ACTION(userTrigger, SDLOG(0, "==================================================
 ACTION(reloadHUDVertices, RSManager::get().reloadHudVertices());
 
 ACTION(togglePaused, RSManager::get().togglePaused());
+
+ACTION(manualBackup, SaveManager::get().backup(););

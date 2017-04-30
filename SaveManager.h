@@ -14,17 +14,18 @@ using std::string;
 
 class SaveManager {
 	static SaveManager instance;
-	
-	string userSaveFolder;
-	time_t lastBackupTime; 
 
-	string getFileNameFromPath(const string& path);
-	vector<string> getSaveFiles(const char* ending = ".sl2");
-	
-	void backup(const time_t curTime);
+	string userSaveFolder;
+	time_t lastBackupTime;
+	time_t lastBackupSaveTime;
+
+	vector<WIN32_FIND_DATA> getSaveFiles(const char* ending);
+
 	void removeOldBackups();
 
 	time_t getLastBackupTime();
+	time_t getLastBackupSaveTime();
+	time_t getLastSaveTime();
 
 public:
 	static SaveManager& get() {
@@ -35,5 +36,6 @@ public:
 
 	void init();
 	void tick();
+	void backup();
 };
 

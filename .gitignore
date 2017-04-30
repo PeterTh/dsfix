@@ -1,4 +1,9 @@
 *.sdf
 *.user
 *.opensdf
+.vs
 Release
+Debug
+*.suo
+*.opendb
+*.filters

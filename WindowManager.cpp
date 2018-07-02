@@ -1,4 +1,5 @@
 #include "WindowManager.h"
+#include <utility>
 
 WindowManager WindowManager::instance;
 
@@ -40,13 +41,9 @@ void WindowManager::toggleBorderlessFullscreen() {
 		lExStyle &= ~(WS_EX_DLGMODALFRAME | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE);
 		::SetWindowLong(hwnd, GWL_EXSTYLE, lExStyle);
 		// adjust size & position
-		HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-		MONITORINFO info;
-		info.cbSize = sizeof(MONITORINFO);
-		GetMonitorInfo(monitor, &info);
-		int monitorWidth = info.rcMonitor.right - info.rcMonitor.left;
-		int monitorHeight = info.rcMonitor.bottom - info.rcMonitor.top;
-		::SetWindowPos(hwnd, NULL, info.rcMonitor.left, info.rcMonitor.top, monitorWidth, monitorHeight, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOOWNERZORDER);
+		int monitorWidth = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
+		int monitorHeight = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
+		::SetWindowPos(hwnd, NULL, monitorInfo.rcMonitor.left, monitorInfo.rcMonitor.top, monitorWidth, monitorHeight, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOOWNERZORDER);
 	} else {
 		// restore previous window
 		::SetWindowLong(hwnd, GWL_STYLE, prevStyle);
@@ -63,23 +60,57 @@ void WindowManager::resize(unsigned clientW, unsigned clientH) {
 	// Store current window rect
 	::GetClientRect(hwnd, &prevWindowRect);
 	// Get monitor size
-	HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-	MONITORINFO info;
-	info.cbSize = sizeof(MONITORINFO);
-	GetMonitorInfo(monitor, &info);
-	int monitorWidth = info.rcMonitor.right - info.rcMonitor.left;
-	int monitorHeight = info.rcMonitor.bottom - info.rcMonitor.top;
+	int monitorWidth = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
+	int monitorHeight = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
 
 	// How much do we overlap or are smaller than the actual screen size
 	int widthDiff = monitorWidth - (clientW ? clientW : prevWindowRect.right);
 	int heightDiff = monitorHeight - (clientH ? clientH : prevWindowRect.bottom);
 
  	RECT desiredRect;
-	desiredRect.left = widthDiff / 2;
-	desiredRect.top = heightDiff / 2;
+	desiredRect.left = monitorInfo.rcMonitor.left + widthDiff / 2;
+	desiredRect.top = monitorInfo.rcMonitor.top + heightDiff / 2;
 	desiredRect.right = monitorWidth - (widthDiff / 2);
 	desiredRect.bottom = monitorHeight - (heightDiff / 2);
  	LONG lStyle = ::GetWindowLong(hwnd, GWL_STYLE);
  	::AdjustWindowRect(&desiredRect, lStyle, false);
 	::SetWindowPos(hwnd, NULL, desiredRect.left, desiredRect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+}
+
+BOOL CALLBACK monitorEnumProc(
+	HMONITOR hMonitor,
+	HDC      hdcMonitor,
+	LPRECT   lprcMonitor,
+	LPARAM   dwData
+) {
+	static int i = 0;
+
+	const auto data = reinterpret_cast<std::pair<MONITORINFO*, int>*>(dwData);
+	if (i++ == data->second)
+	{
+		data->first->cbSize = sizeof(MONITORINFO);
+		GetMonitorInfo(hMonitor, data->first);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+void WindowManager::overrideMonitor(int monitor_id) {
+	// If there is a monitor given, tries to find it
+	if (monitor_id != -1)
+	{
+		monitorInfo.cbSize = 0;
+		std::pair<MONITORINFO*, int> data{ &monitorInfo, monitor_id };
+		EnumDisplayMonitors(nullptr, nullptr, monitorEnumProc, reinterpret_cast<LPARAM>(&data));
+		if (monitorInfo.cbSize != 0)
+		{
+			return;
+		}
+	}
+
+	// If there is no override, uses the 'nearest' monitor to the current window
+	HWND hwnd = ::GetActiveWindow();
+	HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+	monitorInfo.cbSize = sizeof(MONITORINFO);
+	GetMonitorInfo(monitor, &monitorInfo);
 }

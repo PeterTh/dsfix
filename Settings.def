@@ -66,6 +66,7 @@ SETTING(float, HudBottomRightOpacity, "hudBottomRightOpacity", 1.0f)
 
 // Screen Options
 SETTING(bool, BorderlessFullscreen, "borderlessFullscreen", false);
+SETTING(int, MonitorOverride, "monitorOverride", -1);
 SETTING(bool, ForceFullscreen, "forceFullscreen", false);
 SETTING(bool, ForceWindowed, "forceWindowed", false);
 SETTING(unsigned, PresentWidth, "presentWidth", 0);

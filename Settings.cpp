@@ -52,6 +52,8 @@ void Settings::report() {
 
 void Settings::init() {
 	if(!inited) {
+		auto const monitor_id = getMonitorOverride();
+		WindowManager::get().overrideMonitor(monitor_id);
 		if(getDisableCursor()) WindowManager::get().toggleCursorVisibility();
 		if(getCaptureCursor()) WindowManager::get().toggleCursorCapture();
 		if(getBorderlessFullscreen()) WindowManager::get().toggleBorderlessFullscreen();

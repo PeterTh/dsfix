@@ -10,6 +10,7 @@ class WindowManager {
 	bool borderlessFullscreen;
 	RECT prevWindowRect;
 	long prevStyle, prevExStyle;
+	MONITORINFO monitorInfo;
 
 public:
 	static WindowManager& get() {
@@ -22,4 +23,5 @@ public:
 	void toggleCursorVisibility();
 	void toggleBorderlessFullscreen();
 	void resize(unsigned clientW, unsigned clientH);
+	void overrideMonitor(int monitor_id);
 };
